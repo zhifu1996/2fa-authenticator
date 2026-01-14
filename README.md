@@ -15,23 +15,17 @@
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/zhifu1996/2fa-authenticator)
 
-### 部署步骤
+### 部署后配置
 
-1. 点击上方按钮，授权 Cloudflare 访问你的 GitHub
-2. 选择你的 Cloudflare 账号
-3. 部署完成后，在 Cloudflare Dashboard 中：
-   - 进入 Workers & Pages > 2fa-worker > Settings > Variables
-   - 添加以下 Secrets：
-     - `ADMIN_PASSWORD`: 管理员密码
-     - `JWT_SECRET`: JWT 密钥（可使用随机字符串）
-   - 进入 KV > 创建一个 namespace，绑定到 Worker
+部署完成后，在 Cloudflare Dashboard 中：
+
+1. 进入 **Workers & Pages** > **2fa-worker** > **Settings** > **Variables**
+2. 添加以下 Secrets：
+   - `ADMIN_PASSWORD`: 管理员密码
+   - `JWT_SECRET`: JWT 密钥（运行 `openssl rand -hex 32` 生成）
+3. 进入 **KV** > 创建 namespace，然后在 Worker 设置中绑定为 `KV`
 
 ## 手动部署
-
-### 前置要求
-
-- Node.js >= 18
-- Cloudflare 账号
 
 ### 1. 克隆项目
 
@@ -43,7 +37,6 @@ cd 2fa-authenticator
 ### 2. 部署 Worker (API)
 
 ```bash
-cd worker
 npm install
 
 # 登录 Cloudflare
@@ -68,7 +61,6 @@ cd web
 npm install
 
 # 修改 src/utils/api.ts 中的 API 地址为你的 Worker 地址
-# 构建
 npm run build
 
 # 部署到 Cloudflare Pages
@@ -79,8 +71,7 @@ npx wrangler pages deploy dist --project-name 2fa-web
 ## 本地开发
 
 ```bash
-# 终端 1: 启动 API 服务器
-cd worker
+# 终端 1: 启动 API 模拟服务器
 node dev-server.mjs
 
 # 终端 2: 启动前端
@@ -100,19 +91,19 @@ npm run dev
 ## 项目结构
 
 ```
-2fa/
-├── worker/                 # Cloudflare Worker API
-│   ├── src/
-│   │   ├── index.ts       # 主入口
-│   │   ├── routes/        # API 路由
-│   │   └── utils/         # TOTP、JWT 工具
-│   └── wrangler.toml      # Worker 配置
+2fa-authenticator/
+├── src/                    # Worker 源码
+│   ├── index.ts           # 主入口
+│   ├── routes/            # API 路由
+│   └── utils/             # TOTP、JWT 工具
 ├── web/                    # Vue 3 前端
 │   ├── src/
 │   │   ├── views/         # 页面组件
 │   │   ├── components/    # 通用组件
 │   │   └── utils/         # API、TOTP 工具
 │   └── vite.config.ts
+├── wrangler.toml          # Worker 配置
+├── dev-server.mjs         # 本地开发服务器
 └── README.md
 ```
 
