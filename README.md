@@ -28,10 +28,10 @@
 # 登录 Cloudflare
 npx wrangler login
 
-# 设置管理员密码
+# 设置管理员密码（必须）
 echo -n "你的密码" | npx wrangler secret put ADMIN_PASSWORD
 
-# 设置 JWT 密钥
+# 设置 JWT 密钥（可选，不设置会自动基于密码生成）
 openssl rand -hex 32 | tr -d '\n' | npx wrangler secret put JWT_SECRET
 ```
 
@@ -39,8 +39,8 @@ openssl rand -hex 32 | tr -d '\n' | npx wrangler secret put JWT_SECRET
 
 1. 进入 **Workers & Pages** > **2fa-authenticator** > **Settings** > **Variables**
 2. 添加以下 Secrets：
-   - `ADMIN_PASSWORD`: 管理员密码
-   - `JWT_SECRET`: JWT 密钥（运行 `openssl rand -hex 32` 生成）
+   - `ADMIN_PASSWORD`: 管理员密码（必须）
+   - `JWT_SECRET`: JWT 密钥（可选，推荐设置以增强安全性）
 
 ## 手动部署
 
@@ -78,8 +78,10 @@ cd web && npm run build && cd ..
 ### 5. 部署
 
 ```bash
-# 设置密码
+# 设置密码（必须）
 echo -n "你的密码" | npx wrangler secret put ADMIN_PASSWORD
+
+# 设置 JWT 密钥（可选）
 openssl rand -hex 32 | tr -d '\n' | npx wrangler secret put JWT_SECRET
 
 # 部署

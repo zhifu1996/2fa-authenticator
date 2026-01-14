@@ -4,6 +4,19 @@ import { createJWT, verifyJWT } from '../utils/auth';
 
 const admin = new Hono<{ Bindings: Env }>();
 
+// 获取 JWT 密钥，如果未设置则基于 ADMIN_PASSWORD 生成
+async function getJWTSecret(env: Env): Promise<string> {
+  if (env.JWT_SECRET) {
+    return env.JWT_SECRET;
+  }
+  // 使用 ADMIN_PASSWORD 的 SHA-256 哈希作为备用密钥
+  const encoder = new TextEncoder();
+  const data = encoder.encode(env.ADMIN_PASSWORD + '_jwt_secret_salt');
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // JWT 认证中间件
 const authMiddleware = async (c: any, next: () => Promise<void>) => {
   const authHeader = c.req.header('Authorization');
@@ -12,7 +25,8 @@ const authMiddleware = async (c: any, next: () => Promise<void>) => {
   }
 
   const token = authHeader.slice(7);
-  const valid = await verifyJWT(token, c.env.JWT_SECRET);
+  const jwtSecret = await getJWTSecret(c.env);
+  const valid = await verifyJWT(token, jwtSecret);
   if (!valid) {
     return c.json({ error: 'Invalid or expired token' }, 401);
   }
@@ -28,7 +42,8 @@ admin.post('/login', async (c) => {
     return c.json({ error: 'Invalid password' }, 401);
   }
 
-  const token = await createJWT(c.env.JWT_SECRET);
+  const jwtSecret = await getJWTSecret(c.env);
+  const token = await createJWT(jwtSecret);
   return c.json({ token });
 });
 
