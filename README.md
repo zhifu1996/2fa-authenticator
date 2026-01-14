@@ -13,7 +13,7 @@
 
 ## 一键部署
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/YOUR_USERNAME/2fa-authenticator)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/zhifu1996/2fa-authenticator)
 
 ### 部署步骤
 
@@ -36,7 +36,7 @@
 ### 1. 克隆项目
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/2fa-authenticator.git
+git clone https://github.com/zhifu1996/2fa-authenticator.git
 cd 2fa-authenticator
 ```
 
