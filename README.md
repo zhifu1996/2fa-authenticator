@@ -99,7 +99,7 @@ cd web
 npm run dev
 ```
 
-访问 http://localhost:5173，默认管理员密码：`admin123`
+访问 http://localhost:5173 ，默认管理员密码：`admin123`
 
 ## 技术栈
 
