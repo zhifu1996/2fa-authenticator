@@ -1,6 +1,4 @@
-const API_BASE = import.meta.env.PROD
-  ? 'https://2fa-worker.zhifu.workers.dev/api'
-  : '/api';
+const API_BASE = '/api';
 
 export interface Account {
   id: string;
@@ -103,6 +101,24 @@ export async function deleteAccount(id: string): Promise<void> {
 export async function reorderAccounts(ids: string[]): Promise<void> {
   await request('/admin/accounts/reorder', {
     method: 'PUT',
+    body: JSON.stringify({ ids }),
+  });
+}
+
+export async function importAccounts(content: string): Promise<{ imported: number; skipped: number; duplicates: string[] }> {
+  return await request<{ imported: number; skipped: number; duplicates: string[] }>('/admin/accounts/import', {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  });
+}
+
+export async function exportAccounts(): Promise<{ accounts: Account[]; tsv: string }> {
+  return await request<{ accounts: Account[]; tsv: string }>('/admin/accounts/export');
+}
+
+export async function batchDeleteAccounts(ids: string[]): Promise<{ deleted: number }> {
+  return await request<{ deleted: number }>('/admin/accounts/batch-delete', {
+    method: 'POST',
     body: JSON.stringify({ ids }),
   });
 }

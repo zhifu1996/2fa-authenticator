@@ -29,6 +29,25 @@
         <h2 class="text-xl font-bold">账号管理</h2>
         <div class="flex gap-2">
           <button
+            v-if="selectedIds.size > 0"
+            @click="handleBatchDelete"
+            class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
+          >
+            删除 ({{ selectedIds.size }})
+          </button>
+          <button
+            @click="showExportForm = true"
+            class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-sm"
+          >
+            导出{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
+          </button>
+          <button
+            @click="showImportForm = true"
+            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+          >
+            导入
+          </button>
+          <button
             @click="showAddForm = true"
             class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
           >
@@ -48,48 +67,152 @@
       <div v-else-if="accounts.length === 0" class="text-center py-8 text-gray-500">
         暂无账号
       </div>
-      <div v-else class="space-y-2">
-        <div
-          v-for="(account, index) in accounts"
-          :key="account.id"
-          class="flex items-center gap-3 p-3 bg-white rounded-lg shadow-sm"
-        >
-          <div class="flex flex-col gap-1">
+      <div v-else class="space-y-4">
+        <!-- 全选 -->
+        <div class="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+          <input
+            type="checkbox"
+            :checked="selectedIds.size === accounts.length && accounts.length > 0"
+            @change="toggleSelectAll"
+            class="w-4 h-4 rounded"
+          />
+          <span class="text-sm text-gray-600">全选</span>
+        </div>
+        <!-- 分组显示 -->
+        <div v-for="group in groupedAccounts" :key="group.issuer" class="space-y-2">
+          <h3 class="text-sm font-medium text-gray-500 px-1">{{ group.issuer }}</h3>
+          <div
+            v-for="account in group.accounts"
+            :key="account.id"
+            class="flex items-center gap-3 p-3 bg-white rounded-lg shadow-sm"
+          >
+            <input
+              type="checkbox"
+              :checked="selectedIds.has(account.id)"
+              @change="toggleSelect(account.id)"
+              class="w-4 h-4 rounded"
+            />
+            <div class="flex-1 min-w-0">
+              <div class="font-medium truncate">{{ account.name }}</div>
+              <div class="text-sm text-gray-500 truncate">{{ account.secret }}</div>
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+              <button
+                @click="editAccount(account)"
+                class="p-2 text-blue-600 hover:bg-blue-50 rounded"
+              >
+                编辑
+              </button>
+              <button
+                @click="handleDelete(account.id)"
+                class="p-2 text-red-600 hover:bg-red-50 rounded"
+              >
+                删除
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 导出弹窗 -->
+    <div
+      v-if="showExportForm"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      @mousedown.self="showExportForm = false"
+    >
+      <div class="bg-white rounded-lg p-6 w-full max-w-sm" @mousedown.stop>
+        <h3 class="text-lg font-bold mb-4">导出账号</h3>
+        <div class="space-y-4">
+          <div>
+            <p class="text-sm text-gray-600 mb-3">
+              {{ selectedIds.size > 0 ? `将导出选中的 ${selectedIds.size} 个账号` : `将导出全部 ${accounts.length} 个账号` }}
+            </p>
+            <label class="block text-sm font-medium text-gray-700 mb-2">选择格式</label>
+            <div class="flex gap-3">
+              <label class="flex items-center gap-2">
+                <input type="radio" v-model="exportFormat" value="tsv" class="w-4 h-4" />
+                <span class="text-sm">TSV (Tab)</span>
+              </label>
+              <label class="flex items-center gap-2">
+                <input type="radio" v-model="exportFormat" value="csv" class="w-4 h-4" />
+                <span class="text-sm">CSV</span>
+              </label>
+              <label class="flex items-center gap-2">
+                <input type="radio" v-model="exportFormat" value="txt" class="w-4 h-4" />
+                <span class="text-sm">TXT</span>
+              </label>
+            </div>
+          </div>
+          <div class="flex gap-3 pt-2">
             <button
-              @click="moveUp(index)"
-              :disabled="index === 0"
-              class="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+              @click="showExportForm = false"
+              class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
             >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
-              </svg>
+              取消
             </button>
             <button
-              @click="moveDown(index)"
-              :disabled="index === accounts.length - 1"
-              class="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+              @click="handleExport"
+              class="flex-1 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
             >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-              </svg>
+              导出
             </button>
           </div>
-          <div class="flex-1">
-            <div class="font-medium">{{ account.name }}</div>
-            <div class="text-sm text-gray-500">{{ account.issuer }} - {{ account.secret }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 导入弹窗 -->
+    <div
+      v-if="showImportForm"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      @mousedown.self="showImportForm = false; importError = ''"
+    >
+      <div class="bg-white rounded-lg p-6 w-full max-w-lg" @mousedown.stop>
+        <h3 class="text-lg font-bold mb-4">批量导入账号</h3>
+        <div class="space-y-4">
+          <div class="text-sm text-gray-500 bg-gray-50 p-3 rounded">
+            <p class="font-medium text-gray-700 mb-1">支持格式：</p>
+            <p>name, issuer, secret（每行一条，逗号/Tab/竖线分隔）</p>
+            <p class="text-xs text-gray-400 mt-1">自动跳过格式错误的行</p>
           </div>
-          <div class="flex gap-2">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-sm font-medium text-gray-700">粘贴内容或选择文件</label>
+              <label class="cursor-pointer px-3 py-1 bg-gray-100 text-gray-600 rounded text-sm hover:bg-gray-200">
+                选择文件
+                <input
+                  type="file"
+                  accept=".txt,.csv,.tsv"
+                  class="hidden"
+                  @change="handleFileSelect"
+                />
+              </label>
+            </div>
+            <textarea
+              v-model="importContent"
+              rows="10"
+              placeholder="示例：
+user@example.com, Google, JBSWY3DPEHPK3PXP
+admin@company.com, GitHub, HXDMVJECJJWSRB3H"
+              class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs"
+            ></textarea>
+          </div>
+          <div v-if="importError" class="text-red-500 text-sm">{{ importError }}</div>
+          <div class="flex gap-3 pt-2">
             <button
-              @click="editAccount(account)"
-              class="p-2 text-blue-600 hover:bg-blue-50 rounded"
+              type="button"
+              @click="showImportForm = false; importContent = ''; importError = ''"
+              class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
             >
-              编辑
+              取消
             </button>
             <button
-              @click="handleDelete(account.id)"
-              class="p-2 text-red-600 hover:bg-red-50 rounded"
+              @click="handleImport"
+              :disabled="importLoading"
+              class="flex-1 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
             >
-              删除
+              {{ importLoading ? '导入中...' : '导入' }}
             </button>
           </div>
         </div>
@@ -158,7 +281,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import {
   login,
   logout,
@@ -167,7 +290,9 @@ import {
   createAccount,
   updateAccount,
   deleteAccount,
-  reorderAccounts,
+  importAccounts,
+  exportAccounts,
+  batchDeleteAccounts,
   type Account,
 } from '../utils/api';
 
@@ -178,6 +303,28 @@ const isLoggedIn = ref(!!getToken());
 
 const accounts = ref<Account[]>([]);
 const loading = ref(true);
+const selectedIds = ref<Set<string>>(new Set());
+
+// 按 issuer 分组
+const groupedAccounts = computed(() => {
+  const groups: Record<string, Account[]> = {};
+  for (const acc of accounts.value) {
+    const issuer = acc.issuer || '其他';
+    if (!groups[issuer]) {
+      groups[issuer] = [];
+    }
+    groups[issuer].push(acc);
+  }
+  const sortedKeys = Object.keys(groups).sort((a, b) => {
+    if (a === '其他') return 1;
+    if (b === '其他') return -1;
+    return a.localeCompare(b);
+  });
+  return sortedKeys.map((key) => ({
+    issuer: key,
+    accounts: groups[key].sort((a, b) => a.name.localeCompare(b.name)),
+  }));
+});
 
 const showAddForm = ref(false);
 const editingAccount = ref<Account | null>(null);
@@ -188,6 +335,14 @@ const form = ref({
 });
 const formLoading = ref(false);
 const formError = ref('');
+
+const showImportForm = ref(false);
+const importContent = ref('');
+const importLoading = ref(false);
+const importError = ref('');
+
+const showExportForm = ref(false);
+const exportFormat = ref<'tsv' | 'csv' | 'txt'>('tsv');
 
 async function handleLogin() {
   loginLoading.value = true;
@@ -265,20 +420,116 @@ async function handleDelete(id: string) {
   }
 }
 
-async function moveUp(index: number) {
-  if (index === 0) return;
-  const ids = accounts.value.map((a) => a.id);
-  [ids[index - 1], ids[index]] = [ids[index], ids[index - 1]];
-  await reorderAccounts(ids);
-  await fetchAccounts();
+async function handleImport() {
+  if (!importContent.value.trim()) {
+    importError.value = '请输入要导入的内容';
+    return;
+  }
+  importLoading.value = true;
+  importError.value = '';
+  try {
+    const result = await importAccounts(importContent.value);
+    let msg = `成功导入 ${result.imported} 个账号`;
+    if (result.skipped > 0) {
+      msg += `\n跳过 ${result.skipped} 条无效数据`;
+    }
+    if (result.duplicates.length > 0) {
+      msg += `\n\n以下账号已存在，已跳过：\n${result.duplicates.slice(0, 10).join('\n')}`;
+      if (result.duplicates.length > 10) {
+        msg += `\n...等 ${result.duplicates.length} 条`;
+      }
+    }
+    alert(msg);
+    showImportForm.value = false;
+    importContent.value = '';
+    await fetchAccounts();
+  } catch (e) {
+    importError.value = (e as Error).message;
+  } finally {
+    importLoading.value = false;
+  }
 }
 
-async function moveDown(index: number) {
-  if (index === accounts.value.length - 1) return;
-  const ids = accounts.value.map((a) => a.id);
-  [ids[index], ids[index + 1]] = [ids[index + 1], ids[index]];
-  await reorderAccounts(ids);
-  await fetchAccounts();
+function handleFileSelect(event: Event) {
+  const input = event.target as HTMLInputElement;
+  if (!input.files?.length) return;
+
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    importContent.value = e.target?.result as string || '';
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+function toggleSelect(id: string) {
+  const newSet = new Set(selectedIds.value);
+  if (newSet.has(id)) {
+    newSet.delete(id);
+  } else {
+    newSet.add(id);
+  }
+  selectedIds.value = newSet;
+}
+
+function toggleSelectAll() {
+  if (selectedIds.value.size === accounts.value.length) {
+    selectedIds.value = new Set();
+  } else {
+    selectedIds.value = new Set(accounts.value.map((a) => a.id));
+  }
+}
+
+async function handleBatchDelete() {
+  if (selectedIds.value.size === 0) return;
+  if (!confirm(`确定要删除选中的 ${selectedIds.value.size} 个账号吗？`)) return;
+  try {
+    await batchDeleteAccounts(Array.from(selectedIds.value));
+    selectedIds.value = new Set();
+    await fetchAccounts();
+  } catch (e) {
+    alert((e as Error).message);
+  }
+}
+
+async function handleExport() {
+  try {
+    const result = await exportAccounts();
+    const idsToExport = selectedIds.value.size > 0 ? selectedIds.value : new Set(accounts.value.map((a) => a.id));
+    const accountsToExport = result.accounts.filter((a) => idsToExport.has(a.id));
+
+    let separator = '\t';
+    let ext = 'tsv';
+    let mimeType = 'text/tab-separated-values';
+
+    if (exportFormat.value === 'csv') {
+      separator = ',';
+      ext = 'csv';
+      mimeType = 'text/csv';
+    } else if (exportFormat.value === 'txt') {
+      separator = ' | ';
+      ext = 'txt';
+      mimeType = 'text/plain';
+    }
+
+    const header = ['序号', 'name', 'issuer', 'secret'].join(separator);
+    const rows = accountsToExport.map((acc, index) =>
+      [index + 1, acc.name, acc.issuer, acc.secret].join(separator)
+    );
+    const content = [header, ...rows].join('\n');
+
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `2fa-backup-${new Date().toISOString().slice(0, 10)}.${ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showExportForm.value = false;
+  } catch (e) {
+    alert((e as Error).message);
+  }
 }
 
 onMounted(() => {

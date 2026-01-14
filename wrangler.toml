@@ -1,10 +1,10 @@
-name = "2fa-worker"
+name = "2fa-authenticator"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
+assets = { directory = "./web/dist" }
 
 # 生产环境密码通过 secret 设置: wrangler secret put ADMIN_PASSWORD
 # 生产环境 JWT 密钥通过 secret 设置: wrangler secret put JWT_SECRET
 
 [[kv_namespaces]]
 binding = "KV"
-id = "3861b9e93405408d8df325de2741a990"

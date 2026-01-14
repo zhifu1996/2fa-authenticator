@@ -1,13 +1,18 @@
 <template>
   <div class="p-2 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
-    <div class="flex justify-between items-start mb-2">
-      <div>
-        <div class="text-sm text-gray-500">{{ account.issuer || 'Unknown' }}</div>
-        <div class="font-medium text-gray-800 text-sm">{{ account.name }}</div>
+    <div :class="['flex justify-between items-start gap-2', hideIssuer ? 'mb-1' : 'mb-2']">
+      <div class="min-w-0 flex-1">
+        <div v-if="!hideIssuer" class="text-sm text-gray-500">{{ account.issuer || 'Unknown' }}</div>
+        <div
+          class="font-medium text-gray-800 text-sm truncate cursor-pointer hover:text-blue-600"
+          :title="account.name"
+          @click="copyName"
+        >{{ account.name }}</div>
+        <div v-if="nameCopied" class="text-xs text-green-600">已复制</div>
       </div>
       <button
         @click="copyCode"
-        class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+        class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded flex-shrink-0"
         title="复制验证码"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -58,9 +63,11 @@ import type { AccountWithCode } from '../utils/api';
 const props = defineProps<{
   account: AccountWithCode;
   remaining: number;
+  hideIssuer?: boolean;
 }>();
 
 const copied = ref(false);
+const nameCopied = ref(false);
 
 const formattedCode = computed(() => {
   const code = props.account.code;
@@ -81,6 +88,14 @@ async function copyCode() {
   copied.value = true;
   setTimeout(() => {
     copied.value = false;
+  }, 1500);
+}
+
+async function copyName() {
+  await navigator.clipboard.writeText(props.account.name);
+  nameCopied.value = true;
+  setTimeout(() => {
+    nameCopied.value = false;
   }, 1500);
 }
 </script>

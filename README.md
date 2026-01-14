@@ -6,9 +6,14 @@
 
 - **无需登录** - 普通用户可直接查看验证码
 - **管理后台** - 管理员通过密码登录，管理账号
+- **分组显示** - 按 Issuer 分组，组内按名称排序
 - **实时刷新** - 验证码自动刷新，带圆环倒计时
 - **临时查询** - 支持临时输入密钥获取验证码
-- **一键复制** - 点击即可复制验证码
+- **一键复制** - 点击即可复制验证码或邮箱
+- **批量导入** - 支持 TSV/CSV/TXT 格式批量导入账号
+- **批量导出** - 支持多种格式导出，可选择账号
+- **批量删除** - 多选账号批量删除
+- **重复检测** - 导入时自动检测重复账号
 - **兼容主流应用** - 支持 Google、GitHub、AWS 等标准 TOTP
 
 ## 一键部署
@@ -17,13 +22,25 @@
 
 ### 部署后配置
 
-部署完成后，在 Cloudflare Dashboard 中：
+部署完成后，需要设置环境变量：
 
-1. 进入 **Workers & Pages** > **2fa-worker** > **Settings** > **Variables**
+```bash
+# 登录 Cloudflare
+npx wrangler login
+
+# 设置管理员密码
+echo -n "你的密码" | npx wrangler secret put ADMIN_PASSWORD
+
+# 设置 JWT 密钥
+openssl rand -hex 32 | tr -d '\n' | npx wrangler secret put JWT_SECRET
+```
+
+或在 Cloudflare Dashboard 中：
+
+1. 进入 **Workers & Pages** > **2fa-authenticator** > **Settings** > **Variables**
 2. 添加以下 Secrets：
    - `ADMIN_PASSWORD`: 管理员密码
    - `JWT_SECRET`: JWT 密钥（运行 `openssl rand -hex 32` 生成）
-3. 进入 **KV** > 创建 namespace，然后在 Worker 设置中绑定为 `KV`
 
 ## 手动部署
 
@@ -34,38 +51,39 @@ git clone https://github.com/zhifu1996/2fa-authenticator.git
 cd 2fa-authenticator
 ```
 
-### 2. 部署 Worker (API)
+### 2. 安装依赖
 
 ```bash
 npm install
+cd web && npm install && cd ..
+```
 
+### 3. 创建 KV 并配置
+
+```bash
 # 登录 Cloudflare
 npx wrangler login
 
 # 创建 KV namespace
-npx wrangler kv:namespace create "2FA_KV"
+npx wrangler kv:namespace create "KV"
 # 将输出的 id 填入 wrangler.toml
-
-# 设置密码
-echo "你的密码" | npx wrangler secret put ADMIN_PASSWORD
-openssl rand -hex 32 | npx wrangler secret put JWT_SECRET
-
-# 部署
-npm run deploy
 ```
 
-### 3. 部署前端
+### 4. 构建前端
 
 ```bash
-cd web
-npm install
+cd web && npm run build && cd ..
+```
 
-# 修改 src/utils/api.ts 中的 API 地址为你的 Worker 地址
-npm run build
+### 5. 部署
 
-# 部署到 Cloudflare Pages
-npx wrangler pages project create 2fa-web --production-branch main
-npx wrangler pages deploy dist --project-name 2fa-web
+```bash
+# 设置密码
+echo -n "你的密码" | npx wrangler secret put ADMIN_PASSWORD
+openssl rand -hex 32 | tr -d '\n' | npx wrangler secret put JWT_SECRET
+
+# 部署
+npx wrangler deploy
 ```
 
 ## 本地开发
@@ -111,7 +129,7 @@ npm run dev
 
 ### 查看验证码
 1. 打开网站首页
-2. 查看账号列表中的验证码
+2. 账号按 Issuer 分组显示
 3. 点击复制按钮复制验证码
 
 ### 临时查询
@@ -122,7 +140,24 @@ npm run dev
 ### 管理账号
 1. 点击右上角"管理"
 2. 输入管理员密码登录
-3. 可添加、编辑、删除、排序账号
+3. 可添加、编辑、删除账号
+
+### 批量导入
+支持以下格式（Tab、竖线、逗号分隔）：
+```
+序号  name  issuer  secret
+1     test@gmail.com  Google  JBSWY3DPEHPK3PXP
+```
+或
+```
+name,issuer,secret
+test@gmail.com,Google,JBSWY3DPEHPK3PXP
+```
+
+### 批量导出
+1. 勾选要导出的账号（或全选）
+2. 选择导出格式（TSV/CSV/TXT）
+3. 点击导出
 
 ## 安全说明
 

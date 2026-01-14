@@ -16,13 +16,19 @@
     <div v-else-if="accounts.length === 0" class="text-center py-8 text-gray-500">
       暂无账号，请联系管理员添加
     </div>
-    <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      <AccountCard
-        v-for="account in accounts"
-        :key="account.id"
-        :account="account"
-        :remaining="remainingMap[account.id] ?? account.remaining"
-      />
+    <div v-else class="space-y-6">
+      <div v-for="group in groupedAccounts" :key="group.issuer">
+        <h3 class="text-sm font-medium text-gray-500 mb-2 px-1">{{ group.issuer }}</h3>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <AccountCard
+            v-for="account in group.accounts"
+            :key="account.id"
+            :account="account"
+            :remaining="remainingMap[account.id] ?? account.remaining"
+            :hide-issuer="true"
+          />
+        </div>
+      </div>
     </div>
 
     <!-- 临时验证码查询 -->
@@ -101,6 +107,28 @@ const accounts = ref<AccountWithCode[]>([]);
 const remainingMap = ref<Record<string, number>>({});
 const loading = ref(true);
 const error = ref('');
+
+// 按 issuer 分组
+const groupedAccounts = computed(() => {
+  const groups: Record<string, AccountWithCode[]> = {};
+  for (const acc of accounts.value) {
+    const issuer = acc.issuer || '其他';
+    if (!groups[issuer]) {
+      groups[issuer] = [];
+    }
+    groups[issuer].push(acc);
+  }
+  // 按 issuer 名称排序
+  const sortedKeys = Object.keys(groups).sort((a, b) => {
+    if (a === '其他') return 1;
+    if (b === '其他') return -1;
+    return a.localeCompare(b);
+  });
+  return sortedKeys.map((key) => ({
+    issuer: key,
+    accounts: groups[key].sort((a, b) => a.name.localeCompare(b.name)),
+  }));
+});
 
 let timer: number | null = null;
 let refreshTimer: number | null = null;
