@@ -1,5 +1,6 @@
 const API_BASE = '/api';
 
+// 账号类型定义（与后端 src/types.ts 保持同步）
 export interface Account {
   id: string;
   name: string;

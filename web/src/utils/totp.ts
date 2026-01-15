@@ -1,4 +1,7 @@
-// 前端 TOTP 计算 (使用 Web Crypto API)
+/**
+ * 前端 TOTP 计算 (使用 Web Crypto API)
+ * 注意：后端 src/utils/totp.ts 有相同实现，修改时需同步
+ */
 
 const BASE32_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 

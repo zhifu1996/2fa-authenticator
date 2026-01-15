@@ -342,6 +342,9 @@ admin@company.com, GitHub, HXDMVJECJJWSRB3H"
               <p>· Android Chrome: 点击地址栏锁图标 > 网站设置 > 摄像头</p>
               <p>· 桌面浏览器: 点击地址栏左侧图标 > 允许摄像头</p>
             </div>
+            <div v-if="permissionWatching" class="mt-3 text-xs text-green-600">
+              正在监听权限变化，开启后将自动重试...
+            </div>
             <button
               @click="retryQrScan"
               class="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -690,7 +693,39 @@ const showQrScanner = ref(false);
 const qrError = ref('');
 const cameraPermissionDenied = ref(false);
 const cameraLoading = ref(false);
+const permissionWatching = ref(false);
 let html5QrCode: Html5Qrcode | null = null;
+let permissionStatus: PermissionStatus | null = null;
+
+// 监听摄像头权限变化
+async function watchCameraPermission() {
+  if (permissionWatching.value) return;
+
+  try {
+    // 检查浏览器是否支持权限查询
+    if (!navigator.permissions?.query) return;
+
+    permissionStatus = await navigator.permissions.query({ name: 'camera' as PermissionName });
+    permissionWatching.value = true;
+
+    permissionStatus.onchange = () => {
+      if (permissionStatus?.state === 'granted' && cameraPermissionDenied.value && showQrScanner.value) {
+        // 权限已开启，自动重试
+        retryQrScan();
+      }
+    };
+  } catch {
+    // 部分浏览器不支持 camera 权限查询，忽略
+  }
+}
+
+function stopWatchingPermission() {
+  if (permissionStatus) {
+    permissionStatus.onchange = null;
+    permissionStatus = null;
+  }
+  permissionWatching.value = false;
+}
 
 function parseOtpauthUri(uri: string): { name: string; issuer: string; secret: string } | null {
   try {
@@ -761,6 +796,8 @@ async function startQrScan() {
       errorMessage.includes('dismissed')
     ) {
       cameraPermissionDenied.value = true;
+      // 开始监听权限变化，用户开启权限后自动重试
+      watchCameraPermission();
     } else if (errorMessage.includes('NotFoundError') || errorMessage.includes('no camera')) {
       qrError.value = '未检测到摄像头设备';
     } else {
@@ -784,6 +821,7 @@ async function stopQrScan() {
     }
     html5QrCode = null;
   }
+  stopWatchingPermission();
   showQrScanner.value = false;
   qrError.value = '';
   cameraPermissionDenied.value = false;

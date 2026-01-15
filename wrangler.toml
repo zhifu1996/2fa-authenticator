@@ -4,6 +4,7 @@ compatibility_date = "2024-01-01"
 
 [assets]
 directory = "./web/dist"
+binding = "ASSETS"
 not_found_handling = "single-page-application"
 
 # 生产环境密码通过 secret 设置: wrangler secret put ADMIN_PASSWORD
@@ -22,6 +23,11 @@ custom_domain = true
 # 个人模式环境配置
 [env.personal]
 name = "2fa-personal"
+
+[env.personal.assets]
+directory = "./web/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
 
 [[env.personal.kv_namespaces]]
 binding = "KV"

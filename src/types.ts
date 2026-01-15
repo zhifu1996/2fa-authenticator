@@ -16,6 +16,7 @@ export interface AccountWithCode extends Account {
 
 export interface Env {
   KV: KVNamespace;
+  ASSETS: Fetcher;
   ADMIN_PASSWORD: string;
   JWT_SECRET: string;
   PUBLIC_MODE?: string;

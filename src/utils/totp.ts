@@ -1,4 +1,7 @@
-// TOTP 实现 (RFC 6238) - 使用 Web Crypto API
+/**
+ * TOTP 实现 (RFC 6238) - 使用 Web Crypto API
+ * 注意：前端 web/src/utils/totp.ts 有相同实现，修改时需同步
+ */
 
 const BASE32_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
