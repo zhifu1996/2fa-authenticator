@@ -35,7 +35,14 @@ echo -n "你的密码" | npx wrangler secret put ADMIN_PASSWORD
 
 # 设置 JWT 密钥（可选，不设置会自动基于密码生成）
 openssl rand -hex 32 | tr -d '\n' | npx wrangler secret put JWT_SECRET
+
+# 个人模式（可选，设置后所有账号直接显示，无需登录）
+echo -n "true" | npx wrangler secret put PUBLIC_MODE
 ```
+
+**模式说明：**
+- **团队模式**（默认）：未登录只显示公开账号，登录后显示所有账号
+- **个人模式**（PUBLIC_MODE=true）：所有账号直接显示，适合个人使用
 
 或在 Cloudflare Dashboard 中：
 
@@ -43,6 +50,7 @@ openssl rand -hex 32 | tr -d '\n' | npx wrangler secret put JWT_SECRET
 2. 添加以下 Secrets：
    - `ADMIN_PASSWORD`: 管理员密码（必须）
    - `JWT_SECRET`: JWT 密钥（可选，推荐设置以增强安全性）
+   - `PUBLIC_MODE`: 设为 `true` 启用个人模式（可选）
 
 ## 手动部署
 

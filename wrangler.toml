@@ -8,6 +8,7 @@ not_found_handling = "single-page-application"
 
 # 生产环境密码通过 secret 设置: wrangler secret put ADMIN_PASSWORD
 # 生产环境 JWT 密钥通过 secret 设置（可选）: wrangler secret put JWT_SECRET
+# 个人模式（显示所有账号）: wrangler secret put PUBLIC_MODE 然后输入 true
 
 [[kv_namespaces]]
 binding = "KV"

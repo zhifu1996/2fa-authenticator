@@ -18,4 +18,5 @@ export interface Env {
   KV: KVNamespace;
   ADMIN_PASSWORD: string;
   JWT_SECRET: string;
+  PUBLIC_MODE?: string;
 }

@@ -10,14 +10,19 @@ accounts.get('/', async (c) => {
   const data = await c.env.KV.get('accounts', 'json') as { accounts: Account[] } | null;
   let accountList = data?.accounts ?? [];
 
-  // 检查是否已登录
-  const authHeader = c.req.header('Authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  const isLoggedIn = token ? await verifyToken(token, c.env) : false;
+  // PUBLIC_MODE=true 时显示所有账号（个人模式）
+  const isPublicMode = c.env.PUBLIC_MODE === 'true';
 
-  // 未登录时只返回公开账号
-  if (!isLoggedIn) {
-    accountList = accountList.filter((acc) => acc.isPublic === true);
+  if (!isPublicMode) {
+    // 团队模式：检查是否已登录
+    const authHeader = c.req.header('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    const isLoggedIn = token ? await verifyToken(token, c.env) : false;
+
+    // 未登录时只返回公开账号
+    if (!isLoggedIn) {
+      accountList = accountList.filter((acc) => acc.isPublic === true);
+    }
   }
 
   // 按 order 排序
