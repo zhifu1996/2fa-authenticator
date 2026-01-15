@@ -13,3 +13,21 @@ not_found_handling = "single-page-application"
 [[kv_namespaces]]
 binding = "KV"
 id = "dc8bb0fcbc8e4772b8dbebd7f5d560a4"
+
+# 团队版自定义域名
+[[routes]]
+pattern = "2fa.skyw.eu.org"
+custom_domain = true
+
+# 个人模式环境配置
+[env.personal]
+name = "2fa-personal"
+
+[[env.personal.kv_namespaces]]
+binding = "KV"
+id = "2a1f9c03a66d402293251f40cc0f86b5"
+
+# 个人版自定义域名
+[[env.personal.routes]]
+pattern = "2fa.1049131.xyz"
+custom_domain = true
