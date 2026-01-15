@@ -331,8 +331,32 @@ admin@company.com, GitHub, HXDMVJECJJWSRB3H"
       <div class="bg-white rounded-lg p-6 w-full max-w-md" @mousedown.stop>
         <h3 class="text-lg font-bold mb-4">扫描二维码</h3>
         <div class="space-y-4">
-          <div id="qr-reader" class="w-full"></div>
-          <div v-if="qrError" class="text-red-500 text-sm">{{ qrError }}</div>
+          <!-- 权限提示 -->
+          <div v-if="cameraPermissionDenied" class="text-center py-6">
+            <div class="text-4xl mb-3">📷</div>
+            <p class="text-gray-700 font-medium mb-2">需要摄像头权限</p>
+            <p class="text-sm text-gray-500 mb-4">请在浏览器设置中允许访问摄像头，然后重试</p>
+            <div class="text-xs text-gray-400 bg-gray-50 p-3 rounded-lg text-left">
+              <p class="font-medium mb-1">如何开启：</p>
+              <p>· iOS Safari: 设置 > Safari > 摄像头 > 允许</p>
+              <p>· Android Chrome: 点击地址栏锁图标 > 网站设置 > 摄像头</p>
+              <p>· 桌面浏览器: 点击地址栏左侧图标 > 允许摄像头</p>
+            </div>
+            <button
+              @click="retryQrScan"
+              class="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              重试
+            </button>
+          </div>
+          <!-- 扫描器 -->
+          <div v-else>
+            <div v-if="cameraLoading" class="text-center py-8 text-gray-500">
+              <div class="animate-pulse">正在启动摄像头...</div>
+            </div>
+            <div id="qr-reader" class="w-full"></div>
+          </div>
+          <div v-if="qrError && !cameraPermissionDenied" class="text-red-500 text-sm">{{ qrError }}</div>
           <div class="flex gap-3 pt-2">
             <button
               @click="stopQrScan"
@@ -664,6 +688,8 @@ async function handleExport() {
 // 二维码扫描相关
 const showQrScanner = ref(false);
 const qrError = ref('');
+const cameraPermissionDenied = ref(false);
+const cameraLoading = ref(false);
 let html5QrCode: Html5Qrcode | null = null;
 
 function parseOtpauthUri(uri: string): { name: string; issuer: string; secret: string } | null {
@@ -696,6 +722,8 @@ function parseOtpauthUri(uri: string): { name: string; issuer: string; secret: s
 async function startQrScan() {
   showQrScanner.value = true;
   qrError.value = '';
+  cameraPermissionDenied.value = false;
+  cameraLoading.value = true;
 
   await nextTick();
 
@@ -721,9 +749,30 @@ async function startQrScan() {
       },
       () => {} // 忽略扫描中的错误
     );
-  } catch (err) {
-    qrError.value = '无法访问摄像头，请检查权限设置';
+    cameraLoading.value = false;
+  } catch (err: unknown) {
+    cameraLoading.value = false;
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    // 检测权限相关错误
+    if (
+      errorMessage.includes('Permission') ||
+      errorMessage.includes('NotAllowedError') ||
+      errorMessage.includes('denied') ||
+      errorMessage.includes('dismissed')
+    ) {
+      cameraPermissionDenied.value = true;
+    } else if (errorMessage.includes('NotFoundError') || errorMessage.includes('no camera')) {
+      qrError.value = '未检测到摄像头设备';
+    } else {
+      qrError.value = '无法访问摄像头: ' + errorMessage;
+    }
   }
+}
+
+async function retryQrScan() {
+  cameraPermissionDenied.value = false;
+  qrError.value = '';
+  await startQrScan();
 }
 
 async function stopQrScan() {
@@ -737,6 +786,8 @@ async function stopQrScan() {
   }
   showQrScanner.value = false;
   qrError.value = '';
+  cameraPermissionDenied.value = false;
+  cameraLoading.value = false;
 }
 
 onMounted(() => {
