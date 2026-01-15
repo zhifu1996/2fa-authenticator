@@ -1,12 +1,14 @@
-name = "2fa-authenticator"
+name = "2fa-worker-v2"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
-assets = { directory = "./web/dist" }
+
+[assets]
+directory = "./web/dist"
+not_found_handling = "single-page-application"
 
 # 生产环境密码通过 secret 设置: wrangler secret put ADMIN_PASSWORD
 # 生产环境 JWT 密钥通过 secret 设置（可选）: wrangler secret put JWT_SECRET
 
 [[kv_namespaces]]
 binding = "KV"
-# 部署时需要创建 KV namespace 并填入 id
-# npx wrangler kv:namespace create "KV"
+id = "dc8bb0fcbc8e4772b8dbebd7f5d560a4"

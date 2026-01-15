@@ -6,6 +6,7 @@ export interface Account {
   digits: number;
   period: number;
   order: number;
+  isPublic: boolean;
 }
 
 export interface AccountWithCode extends Account {

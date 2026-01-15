@@ -1,13 +1,24 @@
 import { Hono } from 'hono';
 import type { Account, AccountWithCode, Env } from '../types';
 import { generateTOTP, getRemaining } from '../utils/totp';
+import { verifyToken } from '../utils/auth';
 
 const accounts = new Hono<{ Bindings: Env }>();
 
 // 获取所有账号及其验证码
 accounts.get('/', async (c) => {
   const data = await c.env.KV.get('accounts', 'json') as { accounts: Account[] } | null;
-  const accountList = data?.accounts ?? [];
+  let accountList = data?.accounts ?? [];
+
+  // 检查是否已登录
+  const authHeader = c.req.header('Authorization');
+  const token = authHeader?.replace('Bearer ', '');
+  const isLoggedIn = token ? await verifyToken(token, c.env) : false;
+
+  // 未登录时只返回公开账号
+  if (!isLoggedIn) {
+    accountList = accountList.filter((acc) => acc.isPublic === true);
+  }
 
   // 按 order 排序
   accountList.sort((a, b) => a.order - b.order);

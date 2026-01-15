@@ -8,6 +8,7 @@ export interface Account {
   digits: number;
   period: number;
   order: number;
+  isPublic: boolean;
 }
 
 export interface AccountWithCode extends Account {
@@ -55,6 +56,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 // 公开 API
 export async function getAccounts(): Promise<AccountWithCode[]> {
+  // 如果已登录，传递 token 以获取所有账号（包括隐私账号）
   const data = await request<{ accounts: AccountWithCode[] }>('/accounts');
   return data.accounts;
 }
@@ -120,5 +122,12 @@ export async function batchDeleteAccounts(ids: string[]): Promise<{ deleted: num
   return await request<{ deleted: number }>('/admin/accounts/batch-delete', {
     method: 'POST',
     body: JSON.stringify({ ids }),
+  });
+}
+
+export async function batchSetVisibility(ids: string[], isPublic: boolean): Promise<{ updated: number }> {
+  return await request<{ updated: number }>('/admin/accounts/batch-visibility', {
+    method: 'POST',
+    body: JSON.stringify({ ids, isPublic }),
   });
 }

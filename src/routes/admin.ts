@@ -1,21 +1,8 @@
 import { Hono } from 'hono';
 import type { Account, Env } from '../types';
-import { createJWT, verifyJWT } from '../utils/auth';
+import { createJWT, verifyJWT, getJWTSecret } from '../utils/auth';
 
 const admin = new Hono<{ Bindings: Env }>();
-
-// 获取 JWT 密钥，如果未设置则基于 ADMIN_PASSWORD 生成
-async function getJWTSecret(env: Env): Promise<string> {
-  if (env.JWT_SECRET) {
-    return env.JWT_SECRET;
-  }
-  // 使用 ADMIN_PASSWORD 的 SHA-256 哈希作为备用密钥
-  const encoder = new TextEncoder();
-  const data = encoder.encode(env.ADMIN_PASSWORD + '_jwt_secret_salt');
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
 
 // JWT 认证中间件
 const authMiddleware = async (c: any, next: () => Promise<void>) => {
@@ -70,6 +57,7 @@ admin.post('/accounts', authMiddleware, async (c) => {
     digits: body.digits || 6,
     period: body.period || 30,
     order: accounts.length,
+    isPublic: body.isPublic ?? false,
   };
 
   accounts.push(newAccount);
@@ -146,6 +134,28 @@ admin.post('/accounts/batch-delete', authMiddleware, async (c) => {
   await c.env.KV.put('accounts', JSON.stringify({ accounts }));
 
   return c.json({ deleted: deletedCount });
+});
+
+// 批量设置可见性
+admin.post('/accounts/batch-visibility', authMiddleware, async (c) => {
+  const body = await c.req.json<{ ids: string[]; isPublic: boolean }>();
+
+  const data = await c.env.KV.get('accounts', 'json') as { accounts: Account[] } | null;
+  const accounts = data?.accounts ?? [];
+
+  const updateSet = new Set(body.ids);
+  let updatedCount = 0;
+
+  for (const account of accounts) {
+    if (updateSet.has(account.id)) {
+      account.isPublic = body.isPublic;
+      updatedCount++;
+    }
+  }
+
+  await c.env.KV.put('accounts', JSON.stringify({ accounts }));
+
+  return c.json({ updated: updatedCount });
 });
 
 // 验证 Base32 格式
@@ -227,6 +237,7 @@ admin.post('/accounts/import', authMiddleware, async (c) => {
       digits: 6,
       period: 30,
       order: currentOrder++,
+      isPublic: false,
     };
 
     accounts.push(newAccount);
@@ -251,9 +262,9 @@ admin.get('/accounts/export', authMiddleware, async (c) => {
   accounts.sort((a, b) => a.order - b.order);
 
   // 生成 TSV 格式（Tab 分隔）
-  const header = 'No\tname\tissuer\tsecret';
+  const header = 'No\tname\tissuer\tsecret\tisPublic';
   const rows = accounts.map((acc, index) =>
-    `${index + 1}\t${acc.name}\t${acc.issuer}\t${acc.secret}`
+    `${index + 1}\t${acc.name}\t${acc.issuer}\t${acc.secret}\t${acc.isPublic ? 'true' : 'false'}`
   );
 
   return c.json({

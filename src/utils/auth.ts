@@ -1,5 +1,7 @@
 // JWT 认证工具
 
+import type { Env } from '../types';
+
 interface JWTPayload {
   exp: number;
   iat: number;
@@ -65,4 +67,23 @@ export async function verifyJWT(token: string, secret: string): Promise<boolean>
   } catch {
     return false;
   }
+}
+
+// 获取 JWT 密钥，如果未设置则基于 ADMIN_PASSWORD 生成
+export async function getJWTSecret(env: Env): Promise<string> {
+  if (env.JWT_SECRET) {
+    return env.JWT_SECRET;
+  }
+  // 使用 ADMIN_PASSWORD 的 SHA-256 哈希作为备用密钥
+  const encoder = new TextEncoder();
+  const data = encoder.encode(env.ADMIN_PASSWORD + '_jwt_secret_salt');
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// 验证 token（供其他模块调用）
+export async function verifyToken(token: string, env: Env): Promise<boolean> {
+  const jwtSecret = await getJWTSecret(env);
+  return verifyJWT(token, jwtSecret);
 }

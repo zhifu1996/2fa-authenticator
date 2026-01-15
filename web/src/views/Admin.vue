@@ -36,6 +36,20 @@
             删除 ({{ selectedIds.size }})
           </button>
           <button
+            v-if="selectedIds.size > 0"
+            @click="handleBatchSetPublic(true)"
+            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+          >
+            设为公开
+          </button>
+          <button
+            v-if="selectedIds.size > 0"
+            @click="handleBatchSetPublic(false)"
+            class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
+          >
+            设为隐私
+          </button>
+          <button
             @click="showExportForm = true"
             class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-sm"
           >
@@ -46,6 +60,12 @@
             class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
           >
             导入
+          </button>
+          <button
+            @click="startQrScan"
+            class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
+          >
+            扫码添加
           </button>
           <button
             @click="showAddForm = true"
@@ -93,7 +113,17 @@
               class="w-4 h-4 rounded"
             />
             <div class="flex-1 min-w-0">
-              <div class="font-medium truncate">{{ account.name }}</div>
+              <div class="flex items-center gap-2">
+                <span class="font-medium truncate">{{ account.name }}</span>
+                <span
+                  v-if="account.isPublic"
+                  class="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded"
+                >公开</span>
+                <span
+                  v-else
+                  class="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
+                >隐私</span>
+              </div>
               <div class="text-sm text-gray-500 truncate">{{ account.secret }}</div>
             </div>
             <div class="flex gap-2 flex-shrink-0">
@@ -257,6 +287,16 @@ admin@company.com, GitHub, HXDMVJECJJWSRB3H"
               class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
             />
           </div>
+          <div>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input
+                v-model="form.isPublic"
+                type="checkbox"
+                class="w-4 h-4 rounded"
+              />
+              <span class="text-sm text-gray-700">公开显示（未登录时可见）</span>
+            </label>
+          </div>
           <div v-if="formError" class="text-red-500 text-sm">{{ formError }}</div>
           <div class="flex gap-3 pt-2">
             <button
@@ -277,11 +317,35 @@ admin@company.com, GitHub, HXDMVJECJJWSRB3H"
         </form>
       </div>
     </div>
+
+    <!-- 扫描二维码弹窗 -->
+    <div
+      v-if="showQrScanner"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      @mousedown.self="stopQrScan"
+    >
+      <div class="bg-white rounded-lg p-6 w-full max-w-md" @mousedown.stop>
+        <h3 class="text-lg font-bold mb-4">扫描二维码</h3>
+        <div class="space-y-4">
+          <div id="qr-reader" class="w-full"></div>
+          <div v-if="qrError" class="text-red-500 text-sm">{{ qrError }}</div>
+          <div class="flex gap-3 pt-2">
+            <button
+              @click="stopQrScan"
+              class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { Html5Qrcode } from 'html5-qrcode';
 import {
   login,
   logout,
@@ -293,6 +357,7 @@ import {
   importAccounts,
   exportAccounts,
   batchDeleteAccounts,
+  batchSetVisibility,
   type Account,
 } from '../utils/api';
 
@@ -332,6 +397,7 @@ const form = ref({
   name: '',
   issuer: '',
   secret: '',
+  isPublic: false,
 });
 const formLoading = ref(false);
 const formError = ref('');
@@ -382,13 +448,14 @@ function editAccount(account: Account) {
     name: account.name,
     issuer: account.issuer,
     secret: account.secret,
+    isPublic: account.isPublic ?? false,
   };
 }
 
 function closeForm() {
   showAddForm.value = false;
   editingAccount.value = null;
-  form.value = { name: '', issuer: '', secret: '' };
+  form.value = { name: '', issuer: '', secret: '', isPublic: false };
   formError.value = '';
 }
 
@@ -493,6 +560,19 @@ async function handleBatchDelete() {
   }
 }
 
+async function handleBatchSetPublic(isPublic: boolean) {
+  if (selectedIds.value.size === 0) return;
+  const action = isPublic ? '公开' : '隐私';
+  if (!confirm(`确定要将选中的 ${selectedIds.value.size} 个账号设为${action}吗？`)) return;
+  try {
+    await batchSetVisibility(Array.from(selectedIds.value), isPublic);
+    selectedIds.value = new Set();
+    await fetchAccounts();
+  } catch (e) {
+    alert((e as Error).message);
+  }
+}
+
 async function handleExport() {
   try {
     const result = await exportAccounts();
@@ -513,9 +593,9 @@ async function handleExport() {
       mimeType = 'text/plain';
     }
 
-    const header = ['序号', 'name', 'issuer', 'secret'].join(separator);
+    const header = ['No', 'name', 'issuer', 'secret', 'isPublic'].join(separator);
     const rows = accountsToExport.map((acc, index) =>
-      [index + 1, acc.name, acc.issuer, acc.secret].join(separator)
+      [index + 1, acc.name, acc.issuer, acc.secret, acc.isPublic ? 'true' : 'false'].join(separator)
     );
     const content = [header, ...rows].join('\n');
 
@@ -532,11 +612,93 @@ async function handleExport() {
   }
 }
 
+// 二维码扫描相关
+const showQrScanner = ref(false);
+const qrError = ref('');
+let html5QrCode: Html5Qrcode | null = null;
+
+function parseOtpauthUri(uri: string): { name: string; issuer: string; secret: string } | null {
+  try {
+    // otpauth://totp/Label?secret=XXX&issuer=YYY
+    const url = new URL(uri);
+    if (url.protocol !== 'otpauth:') return null;
+
+    const params = url.searchParams;
+    const secret = params.get('secret');
+    if (!secret) return null;
+
+    // Label 可能是 issuer:account 或者只是 account
+    const label = decodeURIComponent(url.pathname.replace(/^\/+/, '').replace(/^totp\//, ''));
+    let issuer = params.get('issuer') || '';
+    let name = label;
+
+    if (label.includes(':')) {
+      const parts = label.split(':');
+      if (!issuer) issuer = parts[0];
+      name = parts.slice(1).join(':');
+    }
+
+    return { name, issuer, secret: secret.toUpperCase() };
+  } catch {
+    return null;
+  }
+}
+
+async function startQrScan() {
+  showQrScanner.value = true;
+  qrError.value = '';
+
+  await nextTick();
+
+  try {
+    html5QrCode = new Html5Qrcode('qr-reader');
+    await html5QrCode.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      async (decodedText) => {
+        const parsed = parseOtpauthUri(decodedText);
+        if (parsed) {
+          await stopQrScan();
+          form.value = {
+            name: parsed.name,
+            issuer: parsed.issuer,
+            secret: parsed.secret,
+            isPublic: false,
+          };
+          showAddForm.value = true;
+        } else {
+          qrError.value = '无效的二维码格式';
+        }
+      },
+      () => {} // 忽略扫描中的错误
+    );
+  } catch (err) {
+    qrError.value = '无法访问摄像头，请检查权限设置';
+  }
+}
+
+async function stopQrScan() {
+  if (html5QrCode) {
+    try {
+      await html5QrCode.stop();
+    } catch {
+      // 忽略停止错误
+    }
+    html5QrCode = null;
+  }
+  showQrScanner.value = false;
+  qrError.value = '';
+}
+
 onMounted(() => {
   if (isLoggedIn.value) {
     fetchAccounts();
   } else {
     loading.value = false;
   }
+});
+
+onUnmounted(() => {
+  stopQrScan();
 });
 </script>

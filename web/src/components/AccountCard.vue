@@ -1,10 +1,10 @@
 <template>
-  <div class="p-2 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
+  <div class="p-3 sm:p-2 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
     <div :class="['flex justify-between items-start gap-2', hideIssuer ? 'mb-1' : 'mb-2']">
       <div class="min-w-0 flex-1">
         <div v-if="!hideIssuer" class="text-sm text-gray-500">{{ account.issuer || 'Unknown' }}</div>
         <div
-          class="font-medium text-gray-800 text-sm truncate cursor-pointer hover:text-blue-600"
+          class="font-semibold text-gray-800 text-sm sm:text-base truncate cursor-pointer hover:text-blue-600"
           :title="account.name"
           @click="copyName"
         >{{ account.name }}</div>
@@ -21,7 +21,7 @@
       </button>
     </div>
     <div class="flex items-center justify-between">
-      <div class="text-2xl font-mono font-bold text-blue-600 tracking-wider">
+      <div class="text-2xl sm:text-xl font-mono font-bold text-blue-600 tracking-wider">
         {{ formattedCode }}
       </div>
       <div class="flex items-center gap-2">
