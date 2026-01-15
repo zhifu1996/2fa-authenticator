@@ -159,7 +159,15 @@
               {{ selectedIds.size > 0 ? `将导出选中的 ${selectedIds.size} 个账号` : `将导出全部 ${accounts.length} 个账号` }}
             </p>
             <label class="block text-sm font-medium text-gray-700 mb-2">选择格式</label>
-            <div class="flex gap-3">
+            <div class="grid grid-cols-2 gap-2">
+              <label class="flex items-center gap-2">
+                <input type="radio" v-model="exportFormat" value="aegis" class="w-4 h-4" />
+                <span class="text-sm">Aegis JSON</span>
+              </label>
+              <label class="flex items-center gap-2">
+                <input type="radio" v-model="exportFormat" value="json" class="w-4 h-4" />
+                <span class="text-sm">简单 JSON</span>
+              </label>
               <label class="flex items-center gap-2">
                 <input type="radio" v-model="exportFormat" value="tsv" class="w-4 h-4" />
                 <span class="text-sm">TSV (Tab)</span>
@@ -167,10 +175,6 @@
               <label class="flex items-center gap-2">
                 <input type="radio" v-model="exportFormat" value="csv" class="w-4 h-4" />
                 <span class="text-sm">CSV</span>
-              </label>
-              <label class="flex items-center gap-2">
-                <input type="radio" v-model="exportFormat" value="txt" class="w-4 h-4" />
-                <span class="text-sm">TXT</span>
               </label>
             </div>
           </div>
@@ -203,8 +207,8 @@
         <div class="space-y-4">
           <div class="text-sm text-gray-500 bg-gray-50 p-3 rounded">
             <p class="font-medium text-gray-700 mb-1">支持格式：</p>
-            <p>name, issuer, secret（每行一条，逗号/Tab/竖线分隔）</p>
-            <p class="text-xs text-gray-400 mt-1">自动跳过格式错误的行</p>
+            <p>Aegis JSON、简单 JSON、TSV、CSV</p>
+            <p class="text-xs text-gray-400 mt-1">自动识别格式，支持直接粘贴或选择文件</p>
           </div>
           <div>
             <div class="flex items-center justify-between mb-1">
@@ -213,7 +217,7 @@
                 选择文件
                 <input
                   type="file"
-                  accept=".txt,.csv,.tsv"
+                  accept=".txt,.csv,.tsv,.json"
                   class="hidden"
                   @change="handleFileSelect"
                 />
@@ -408,7 +412,7 @@ const importLoading = ref(false);
 const importError = ref('');
 
 const showExportForm = ref(false);
-const exportFormat = ref<'tsv' | 'csv' | 'txt'>('tsv');
+const exportFormat = ref<'aegis' | 'json' | 'tsv' | 'csv'>('aegis');
 
 async function handleLogin() {
   loginLoading.value = true;
@@ -579,25 +583,70 @@ async function handleExport() {
     const idsToExport = selectedIds.value.size > 0 ? selectedIds.value : new Set(accounts.value.map((a) => a.id));
     const accountsToExport = result.accounts.filter((a) => idsToExport.has(a.id));
 
-    let separator = '\t';
-    let ext = 'tsv';
-    let mimeType = 'text/tab-separated-values';
+    let content: string;
+    let ext: string;
+    let mimeType: string;
 
-    if (exportFormat.value === 'csv') {
-      separator = ',';
-      ext = 'csv';
-      mimeType = 'text/csv';
-    } else if (exportFormat.value === 'txt') {
-      separator = ' | ';
-      ext = 'txt';
-      mimeType = 'text/plain';
+    if (exportFormat.value === 'aegis') {
+      // Aegis 兼容 JSON 格式
+      const aegisData = {
+        version: 1,
+        header: {
+          slots: null,
+          params: null
+        },
+        db: {
+          version: 2,
+          entries: accountsToExport.map((acc) => ({
+            type: 'totp',
+            uuid: acc.id,
+            name: acc.name,
+            issuer: acc.issuer,
+            note: '',
+            favorite: false,
+            info: {
+              secret: acc.secret,
+              algo: 'SHA1',
+              digits: acc.digits || 6,
+              period: acc.period || 30
+            },
+            groups: []
+          }))
+        }
+      };
+      content = JSON.stringify(aegisData, null, 2);
+      ext = 'json';
+      mimeType = 'application/json';
+    } else if (exportFormat.value === 'json') {
+      // 简单 JSON 格式
+      const jsonData = {
+        version: 1,
+        exportDate: new Date().toISOString(),
+        keys: accountsToExport.map((acc) => ({
+          name: acc.name,
+          issuer: acc.issuer,
+          secret: acc.secret,
+          isPublic: acc.isPublic
+        }))
+      };
+      content = JSON.stringify(jsonData, null, 2);
+      ext = 'json';
+      mimeType = 'application/json';
+    } else {
+      // 文本格式 (TSV/CSV)
+      let separator = '\t';
+      if (exportFormat.value === 'csv') {
+        separator = ',';
+      }
+      ext = exportFormat.value;
+      mimeType = exportFormat.value === 'csv' ? 'text/csv' : 'text/tab-separated-values';
+
+      const header = ['No', 'name', 'issuer', 'secret', 'isPublic'].join(separator);
+      const rows = accountsToExport.map((acc, index) =>
+        [index + 1, acc.name, acc.issuer, acc.secret, acc.isPublic ? 'true' : 'false'].join(separator)
+      );
+      content = [header, ...rows].join('\n');
     }
-
-    const header = ['No', 'name', 'issuer', 'secret', 'isPublic'].join(separator);
-    const rows = accountsToExport.map((acc, index) =>
-      [index + 1, acc.name, acc.issuer, acc.secret, acc.isPublic ? 'true' : 'false'].join(separator)
-    );
-    const content = [header, ...rows].join('\n');
 
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);

@@ -12,7 +12,8 @@
 - **临时查询** - 支持临时输入密钥获取验证码
 - **一键复制** - 点击即可复制验证码或账号名
 - **批量操作** - 支持批量导入、导出、删除、设置可见性
-- **多格式支持** - 导入导出支持 TSV/CSV/TXT 格式
+- **Aegis 兼容** - 导入导出支持 Aegis JSON 格式，兼容主流 2FA 应用
+- **多格式支持** - 导入导出支持 Aegis JSON、简单 JSON、TSV、CSV 格式
 - **重复检测** - 导入时自动检测重复账号
 - **移动端适配** - 针对手机端优化的卡片布局
 - **兼容主流应用** - 支持 Google、GitHub、AWS 等标准 TOTP
@@ -155,20 +156,42 @@ npm run dev
 4. 自动识别并填入账号信息
 
 ### 批量操作
-- **批量导入**: 支持 Tab、竖线、逗号分隔的格式
-- **批量导出**: 可选择账号，支持 TSV/CSV/TXT 格式
+- **批量导入**: 支持 Aegis JSON、简单 JSON、TSV、CSV 格式，自动识别
+- **批量导出**: 可选择账号，支持 Aegis JSON、简单 JSON、TSV、CSV 格式
 - **批量删除**: 勾选多个账号后点击删除
 - **批量设置可见性**: 勾选账号后点击"设为公开"或"设为隐私"
 
 ### 导入格式示例
+
+**Aegis JSON 格式（推荐）：**
+```json
+{
+  "db": {
+    "entries": [
+      {
+        "type": "totp",
+        "name": "test@gmail.com",
+        "issuer": "Google",
+        "info": { "secret": "JBSWY3DPEHPK3PXP" }
+      }
+    ]
+  }
+}
+```
+
+**简单 JSON 格式：**
+```json
+{
+  "keys": [
+    { "name": "test@gmail.com", "issuer": "Google", "secret": "JBSWY3DPEHPK3PXP" }
+  ]
+}
+```
+
+**TSV/CSV 格式：**
 ```
 No	name	issuer	secret	isPublic
 1	test@gmail.com	Google	JBSWY3DPEHPK3PXP	false
-```
-或
-```
-name,issuer,secret
-test@gmail.com,Google,JBSWY3DPEHPK3PXP
 ```
 
 ## 安全说明

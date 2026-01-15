@@ -165,23 +165,114 @@ function isValidBase32(str: string): boolean {
   return /^[A-Z2-7]+=*$/.test(str.toUpperCase());
 }
 
-// 批量导入账号
-admin.post('/accounts/import', authMiddleware, async (c) => {
-  const body = await c.req.json<{ content: string }>();
+// Aegis JSON 格式类型定义
+interface AegisEntry {
+  type: string;
+  uuid?: string;
+  name: string;
+  issuer: string;
+  note?: string;
+  info: {
+    secret: string;
+    algo?: string;
+    digits?: number;
+    period?: number;
+  };
+}
 
-  const lines = body.content.split('\n').filter((line) => line.trim());
-  const importedAccounts: Account[] = [];
-  let skippedCount = 0;
-  const duplicates: string[] = [];
+interface AegisExport {
+  version?: number;
+  db?: {
+    entries: AegisEntry[];
+  };
+  // 简单格式
+  keys?: Array<{ name: string; secret: string; issuer?: string }>;
+  // 直接数组格式
+  entries?: AegisEntry[];
+}
 
-  const data = await c.env.KV.get('accounts', 'json') as { accounts: Account[] } | null;
-  const accounts = data?.accounts ?? [];
-  let currentOrder = accounts.length;
+// 解析导入内容（支持多种格式）
+function parseImportContent(content: string): Array<{ name: string; issuer: string; secret: string }> {
+  const results: Array<{ name: string; issuer: string; secret: string }> = [];
 
-  // 构建已存在账号的 name 集合用于去重
-  const existingNames = new Set(accounts.map((a) => a.name.toLowerCase()));
+  // 尝试解析为 JSON
+  try {
+    const json = JSON.parse(content) as AegisExport | AegisEntry[];
+
+    // Aegis 格式: { db: { entries: [...] } }
+    if ('db' in json && json.db?.entries) {
+      for (const entry of json.db.entries) {
+        if (entry.type === 'totp' && entry.info?.secret) {
+          results.push({
+            name: entry.name || '',
+            issuer: entry.issuer || '',
+            secret: entry.info.secret,
+          });
+        }
+      }
+      return results;
+    }
+
+    // 直接 entries 数组格式
+    if ('entries' in json && Array.isArray(json.entries)) {
+      for (const entry of json.entries) {
+        if (entry.info?.secret) {
+          results.push({
+            name: entry.name || '',
+            issuer: entry.issuer || '',
+            secret: entry.info.secret,
+          });
+        }
+      }
+      return results;
+    }
+
+    // 简单 keys 格式: { keys: [{ name, secret, issuer? }] }
+    if ('keys' in json && Array.isArray(json.keys)) {
+      for (const key of json.keys) {
+        if (key.secret) {
+          results.push({
+            name: key.name || '',
+            issuer: key.issuer || '',
+            secret: key.secret,
+          });
+        }
+      }
+      return results;
+    }
+
+    // 直接数组格式: [{ name, secret, issuer }] 或 [{ name, issuer, info: { secret } }]
+    if (Array.isArray(json)) {
+      for (const item of json) {
+        if (item.info?.secret) {
+          // Aegis entry 格式
+          results.push({
+            name: item.name || '',
+            issuer: item.issuer || '',
+            secret: item.info.secret,
+          });
+        } else if (item.secret) {
+          // 简单格式
+          results.push({
+            name: item.name || '',
+            issuer: item.issuer || '',
+            secret: item.secret,
+          });
+        }
+      }
+      return results;
+    }
+  } catch {
+    // 不是 JSON，继续尝试文本格式
+  }
+
+  // 文本格式解析（TSV/CSV/TXT）
+  const lines = content.split('\n').filter((line) => line.trim());
 
   for (const line of lines) {
+    // 跳过表头
+    if (/^(No|序号|name|账号)/i.test(line.trim())) continue;
+
     // 自动检测分隔符：Tab > 竖线 > 逗号
     let separator = ',';
     if (line.includes('\t')) {
@@ -192,9 +283,6 @@ admin.post('/accounts/import', authMiddleware, async (c) => {
 
     const parts = line.split(separator).map((p) => p.trim()).filter((p) => p);
 
-    // 支持多种格式：
-    // 4列: 序号, name, issuer, secret
-    // 3列: name, issuer, secret (无序号)
     let name: string, issuer: string, secret: string;
 
     if (parts.length >= 4) {
@@ -206,33 +294,56 @@ admin.post('/accounts/import', authMiddleware, async (c) => {
       }
     } else if (parts.length === 3) {
       [name, issuer, secret] = parts;
+    } else if (parts.length === 2) {
+      // 只有 name 和 secret
+      [name, secret] = parts;
+      issuer = '';
     } else {
-      skippedCount++;
       continue;
     }
 
-    // 验证必填字段和 secret 格式
-    if (!name || !secret) {
-      skippedCount++;
-      continue;
+    if (name && secret) {
+      results.push({ name, issuer: issuer || '', secret });
     }
+  }
 
-    const cleanSecret = secret.replace(/\s/g, '').toUpperCase();
+  return results;
+}
+
+// 批量导入账号
+admin.post('/accounts/import', authMiddleware, async (c) => {
+  const body = await c.req.json<{ content: string }>();
+
+  const parsed = parseImportContent(body.content);
+  const importedAccounts: Account[] = [];
+  let skippedCount = 0;
+  const duplicates: string[] = [];
+
+  const data = await c.env.KV.get('accounts', 'json') as { accounts: Account[] } | null;
+  const accounts = data?.accounts ?? [];
+  let currentOrder = accounts.length;
+
+  // 构建已存在账号的 name 集合用于去重
+  const existingNames = new Set(accounts.map((a) => a.name.toLowerCase()));
+
+  for (const item of parsed) {
+    const cleanSecret = item.secret.replace(/\s/g, '').toUpperCase();
+
     if (!isValidBase32(cleanSecret)) {
       skippedCount++;
       continue;
     }
 
     // 检查重复
-    if (existingNames.has(name.toLowerCase())) {
-      duplicates.push(name);
+    if (existingNames.has(item.name.toLowerCase())) {
+      duplicates.push(item.name);
       continue;
     }
 
     const newAccount: Account = {
       id: crypto.randomUUID(),
-      name,
-      issuer: issuer || '',
+      name: item.name,
+      issuer: item.issuer,
       secret: cleanSecret,
       digits: 6,
       period: 30,
@@ -242,7 +353,7 @@ admin.post('/accounts/import', authMiddleware, async (c) => {
 
     accounts.push(newAccount);
     importedAccounts.push(newAccount);
-    existingNames.add(name.toLowerCase());
+    existingNames.add(item.name.toLowerCase());
   }
 
   await c.env.KV.put('accounts', JSON.stringify({ accounts }));
