@@ -1,6 +1,14 @@
 import { Hono } from 'hono';
 import type { Account, Env } from '../types';
 import { createJWT, verifyJWT, getJWTSecret } from '../utils/auth';
+import { getAccounts, saveAccounts, findAccountIndexById, reorderAccounts, buildNameSet } from '../utils/kv';
+import {
+  validateAccountInput,
+  validateIdsArray,
+  safeParseJson,
+  normalizeSecret,
+  isValidBase32
+} from '../utils/validation';
 
 const admin = new Hono<{ Bindings: Env }>();
 
@@ -23,9 +31,16 @@ const authMiddleware = async (c: any, next: () => Promise<void>) => {
 
 // 管理员登录
 admin.post('/login', async (c) => {
-  const body = await c.req.json<{ password: string }>();
+  const { data, error } = await safeParseJson<{ password: string }>(c);
+  if (error || !data) {
+    return c.json({ error: error || '请求体无效' }, 400);
+  }
 
-  if (body.password !== c.env.ADMIN_PASSWORD) {
+  if (!data.password) {
+    return c.json({ error: '密码不能为空' }, 400);
+  }
+
+  if (data.password !== c.env.ADMIN_PASSWORD) {
     return c.json({ error: 'Invalid password' }, 401);
   }
 
@@ -36,24 +51,30 @@ admin.post('/login', async (c) => {
 
 // 获取账号列表（管理用，包含 secret）
 admin.get('/accounts', authMiddleware, async (c) => {
-  const data = await c.env.KV.get('accounts', 'json') as { accounts: Account[] } | null;
-  const accounts = data?.accounts ?? [];
+  const accounts = await getAccounts(c.env.KV);
   accounts.sort((a, b) => a.order - b.order);
   return c.json({ accounts });
 });
 
 // 新增账号
 admin.post('/accounts', authMiddleware, async (c) => {
-  const body = await c.req.json<Omit<Account, 'id' | 'order'>>();
+  const { data: body, error } = await safeParseJson<Omit<Account, 'id' | 'order'>>(c);
+  if (error || !body) {
+    return c.json({ error: error || '请求体无效' }, 400);
+  }
 
-  const data = await c.env.KV.get('accounts', 'json') as { accounts: Account[] } | null;
-  const accounts = data?.accounts ?? [];
+  const validation = validateAccountInput(body, true);
+  if (!validation.valid) {
+    return c.json({ error: validation.error }, 400);
+  }
+
+  const accounts = await getAccounts(c.env.KV);
 
   const newAccount: Account = {
     id: crypto.randomUUID(),
-    name: body.name,
-    issuer: body.issuer || '',
-    secret: body.secret.replace(/\s/g, '').toUpperCase(),
+    name: body.name.trim(),
+    issuer: body.issuer?.trim() || '',
+    secret: normalizeSecret(body.secret),
     digits: body.digits || 6,
     period: body.period || 30,
     order: accounts.length,
@@ -61,7 +82,7 @@ admin.post('/accounts', authMiddleware, async (c) => {
   };
 
   accounts.push(newAccount);
-  await c.env.KV.put('accounts', JSON.stringify({ accounts }));
+  await saveAccounts(c.env.KV, accounts);
 
   return c.json({ account: newAccount }, 201);
 });
@@ -69,12 +90,18 @@ admin.post('/accounts', authMiddleware, async (c) => {
 // 编辑账号
 admin.put('/accounts/:id', authMiddleware, async (c) => {
   const id = c.req.param('id');
-  const body = await c.req.json<Partial<Omit<Account, 'id'>>>();
+  const { data: body, error } = await safeParseJson<Partial<Omit<Account, 'id'>>>(c);
+  if (error || !body) {
+    return c.json({ error: error || '请求体无效' }, 400);
+  }
 
-  const data = await c.env.KV.get('accounts', 'json') as { accounts: Account[] } | null;
-  const accounts = data?.accounts ?? [];
+  const validation = validateAccountInput(body, false);
+  if (!validation.valid) {
+    return c.json({ error: validation.error }, 400);
+  }
 
-  const index = accounts.findIndex((a) => a.id === id);
+  const accounts = await getAccounts(c.env.KV);
+  const index = findAccountIndexById(accounts, id);
   if (index === -1) {
     return c.json({ error: 'Account not found' }, 404);
   }
@@ -83,10 +110,12 @@ admin.put('/accounts/:id', authMiddleware, async (c) => {
     ...accounts[index],
     ...body,
     id, // 保持 id 不变
-    secret: body.secret ? body.secret.replace(/\s/g, '').toUpperCase() : accounts[index].secret,
+    name: body.name?.trim() ?? accounts[index].name,
+    issuer: body.issuer?.trim() ?? accounts[index].issuer,
+    secret: body.secret ? normalizeSecret(body.secret) : accounts[index].secret,
   };
 
-  await c.env.KV.put('accounts', JSON.stringify({ accounts }));
+  await saveAccounts(c.env.KV, accounts);
 
   return c.json({ account: accounts[index] });
 });
@@ -95,54 +124,60 @@ admin.put('/accounts/:id', authMiddleware, async (c) => {
 admin.delete('/accounts/:id', authMiddleware, async (c) => {
   const id = c.req.param('id');
 
-  const data = await c.env.KV.get('accounts', 'json') as { accounts: Account[] } | null;
-  let accounts = data?.accounts ?? [];
-
-  const index = accounts.findIndex((a) => a.id === id);
+  const accounts = await getAccounts(c.env.KV);
+  const index = findAccountIndexById(accounts, id);
   if (index === -1) {
     return c.json({ error: 'Account not found' }, 404);
   }
 
-  accounts = accounts.filter((a) => a.id !== id);
+  const filtered = accounts.filter((a) => a.id !== id);
+  const reordered = reorderAccounts(filtered);
 
-  // 重新排序
-  accounts.forEach((a, i) => {
-    a.order = i;
-  });
-
-  await c.env.KV.put('accounts', JSON.stringify({ accounts }));
+  await saveAccounts(c.env.KV, reordered);
 
   return c.json({ success: true });
 });
 
 // 批量删除账号
 admin.post('/accounts/batch-delete', authMiddleware, async (c) => {
-  const body = await c.req.json<{ ids: string[] }>();
+  const { data: body, error } = await safeParseJson<{ ids: string[] }>(c);
+  if (error || !body) {
+    return c.json({ error: error || '请求体无效' }, 400);
+  }
 
-  const data = await c.env.KV.get('accounts', 'json') as { accounts: Account[] } | null;
-  let accounts = data?.accounts ?? [];
+  const validation = validateIdsArray(body.ids);
+  if (!validation.valid) {
+    return c.json({ error: validation.error }, 400);
+  }
 
+  const accounts = await getAccounts(c.env.KV);
   const deleteSet = new Set(body.ids);
   const deletedCount = accounts.filter((a) => deleteSet.has(a.id)).length;
-  accounts = accounts.filter((a) => !deleteSet.has(a.id));
+  const filtered = accounts.filter((a) => !deleteSet.has(a.id));
+  const reordered = reorderAccounts(filtered);
 
-  // 重新排序
-  accounts.forEach((a, i) => {
-    a.order = i;
-  });
-
-  await c.env.KV.put('accounts', JSON.stringify({ accounts }));
+  await saveAccounts(c.env.KV, reordered);
 
   return c.json({ deleted: deletedCount });
 });
 
 // 批量设置可见性
 admin.post('/accounts/batch-visibility', authMiddleware, async (c) => {
-  const body = await c.req.json<{ ids: string[]; isPublic: boolean }>();
+  const { data: body, error } = await safeParseJson<{ ids: string[]; isPublic: boolean }>(c);
+  if (error || !body) {
+    return c.json({ error: error || '请求体无效' }, 400);
+  }
 
-  const data = await c.env.KV.get('accounts', 'json') as { accounts: Account[] } | null;
-  const accounts = data?.accounts ?? [];
+  const validation = validateIdsArray(body.ids);
+  if (!validation.valid) {
+    return c.json({ error: validation.error }, 400);
+  }
 
+  if (typeof body.isPublic !== 'boolean') {
+    return c.json({ error: 'isPublic 必须是布尔值' }, 400);
+  }
+
+  const accounts = await getAccounts(c.env.KV);
   const updateSet = new Set(body.ids);
   let updatedCount = 0;
 
@@ -153,17 +188,10 @@ admin.post('/accounts/batch-visibility', authMiddleware, async (c) => {
     }
   }
 
-  await c.env.KV.put('accounts', JSON.stringify({ accounts }));
+  await saveAccounts(c.env.KV, accounts);
 
   return c.json({ updated: updatedCount });
 });
-
-// 验证 Base32 格式
-function isValidBase32(str: string): boolean {
-  if (!str || str.length < 8) return false;
-  // Base32 只包含 A-Z 和 2-7
-  return /^[A-Z2-7]+=*$/.test(str.toUpperCase());
-}
 
 // Aegis JSON 格式类型定义
 interface AegisEntry {
@@ -180,14 +208,21 @@ interface AegisEntry {
   };
 }
 
+interface SimpleEntry {
+  name?: string;
+  issuer?: string;
+  secret?: string;
+  info?: {
+    secret: string;
+  };
+}
+
 interface AegisExport {
   version?: number;
   db?: {
     entries: AegisEntry[];
   };
-  // 简单格式
   keys?: Array<{ name: string; secret: string; issuer?: string }>;
-  // 直接数组格式
   entries?: AegisEntry[];
 }
 
@@ -241,18 +276,16 @@ function parseImportContent(content: string): Array<{ name: string; issuer: stri
       return results;
     }
 
-    // 直接数组格式: [{ name, secret, issuer }] 或 [{ name, issuer, info: { secret } }]
+    // 直接数组格式
     if (Array.isArray(json)) {
-      for (const item of json) {
+      for (const item of json as SimpleEntry[]) {
         if (item.info?.secret) {
-          // Aegis entry 格式
           results.push({
             name: item.name || '',
             issuer: item.issuer || '',
             secret: item.info.secret,
           });
         } else if (item.secret) {
-          // 简单格式
           results.push({
             name: item.name || '',
             issuer: item.issuer || '',
@@ -286,7 +319,6 @@ function parseImportContent(content: string): Array<{ name: string; issuer: stri
     let name: string, issuer: string, secret: string;
 
     if (parts.length >= 4) {
-      // 检查第一列是否为数字（序号）
       if (/^\d+$/.test(parts[0])) {
         [, name, issuer, secret] = parts;
       } else {
@@ -295,7 +327,6 @@ function parseImportContent(content: string): Array<{ name: string; issuer: stri
     } else if (parts.length === 3) {
       [name, issuer, secret] = parts;
     } else if (parts.length === 2) {
-      // 只有 name 和 secret
       [name, secret] = parts;
       issuer = '';
     } else {
@@ -312,29 +343,32 @@ function parseImportContent(content: string): Array<{ name: string; issuer: stri
 
 // 批量导入账号
 admin.post('/accounts/import', authMiddleware, async (c) => {
-  const body = await c.req.json<{ content: string }>();
+  const { data: body, error } = await safeParseJson<{ content: string }>(c);
+  if (error || !body) {
+    return c.json({ error: error || '请求体无效' }, 400);
+  }
+
+  if (!body.content?.trim()) {
+    return c.json({ error: '导入内容不能为空' }, 400);
+  }
 
   const parsed = parseImportContent(body.content);
   const importedAccounts: Account[] = [];
   let skippedCount = 0;
   const duplicates: string[] = [];
 
-  const data = await c.env.KV.get('accounts', 'json') as { accounts: Account[] } | null;
-  const accounts = data?.accounts ?? [];
+  const accounts = await getAccounts(c.env.KV);
   let currentOrder = accounts.length;
-
-  // 构建已存在账号的 name 集合用于去重
-  const existingNames = new Set(accounts.map((a) => a.name.toLowerCase()));
+  const existingNames = buildNameSet(accounts);
 
   for (const item of parsed) {
-    const cleanSecret = item.secret.replace(/\s/g, '').toUpperCase();
+    const cleanSecret = normalizeSecret(item.secret);
 
     if (!isValidBase32(cleanSecret)) {
       skippedCount++;
       continue;
     }
 
-    // 检查重复
     if (existingNames.has(item.name.toLowerCase())) {
       duplicates.push(item.name);
       continue;
@@ -356,7 +390,7 @@ admin.post('/accounts/import', authMiddleware, async (c) => {
     existingNames.add(item.name.toLowerCase());
   }
 
-  await c.env.KV.put('accounts', JSON.stringify({ accounts }));
+  await saveAccounts(c.env.KV, accounts);
 
   return c.json({
     imported: importedAccounts.length,
@@ -368,11 +402,9 @@ admin.post('/accounts/import', authMiddleware, async (c) => {
 
 // 导出账号
 admin.get('/accounts/export', authMiddleware, async (c) => {
-  const data = await c.env.KV.get('accounts', 'json') as { accounts: Account[] } | null;
-  const accounts = data?.accounts ?? [];
+  const accounts = await getAccounts(c.env.KV);
   accounts.sort((a, b) => a.order - b.order);
 
-  // 生成 TSV 格式（Tab 分隔）
   const header = 'No\tname\tissuer\tsecret\tisPublic';
   const rows = accounts.map((acc, index) =>
     `${index + 1}\t${acc.name}\t${acc.issuer}\t${acc.secret}\t${acc.isPublic ? 'true' : 'false'}`
@@ -384,24 +416,45 @@ admin.get('/accounts/export', authMiddleware, async (c) => {
   });
 });
 
-// 重新排序
+// 重新排序 - 修复：保留未包含在 ids 中的账户
 admin.put('/accounts/reorder', authMiddleware, async (c) => {
-  const body = await c.req.json<{ ids: string[] }>();
+  const { data: body, error } = await safeParseJson<{ ids: string[] }>(c);
+  if (error || !body) {
+    return c.json({ error: error || '请求体无效' }, 400);
+  }
 
-  const data = await c.env.KV.get('accounts', 'json') as { accounts: Account[] } | null;
-  const accounts = data?.accounts ?? [];
+  const validation = validateIdsArray(body.ids);
+  if (!validation.valid) {
+    return c.json({ error: validation.error }, 400);
+  }
 
-  // 根据提供的 id 顺序重新排序
+  const accounts = await getAccounts(c.env.KV);
+
+  // 构建 ID 到账户的映射
+  const accountMap = new Map(accounts.map(a => [a.id, a]));
+  const providedIds = new Set(body.ids);
+
+  // 按提供的顺序排列账户
   const reordered: Account[] = [];
-  for (let i = 0; i < body.ids.length; i++) {
-    const account = accounts.find((a) => a.id === body.ids[i]);
+
+  // 首先添加按新顺序排列的账户
+  for (const id of body.ids) {
+    const account = accountMap.get(id);
     if (account) {
-      account.order = i;
       reordered.push(account);
     }
   }
 
-  await c.env.KV.put('accounts', JSON.stringify({ accounts: reordered }));
+  // 然后添加未包含在 ids 中的账户（保持原有相对顺序）
+  const remaining = accounts
+    .filter(a => !providedIds.has(a.id))
+    .sort((a, b) => a.order - b.order);
+  reordered.push(...remaining);
+
+  // 重新计算顺序
+  const final = reorderAccounts(reordered);
+
+  await saveAccounts(c.env.KV, final);
 
   return c.json({ success: true });
 });

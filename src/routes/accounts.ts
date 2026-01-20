@@ -1,14 +1,14 @@
 import { Hono } from 'hono';
-import type { Account, AccountWithCode, Env } from '../types';
+import type { AccountWithCode, Env } from '../types';
 import { generateTOTP, getRemaining } from '../utils/totp';
 import { verifyToken } from '../utils/auth';
+import { getAccounts } from '../utils/kv';
 
 const accounts = new Hono<{ Bindings: Env }>();
 
 // 获取所有账号及其验证码
 accounts.get('/', async (c) => {
-  const data = await c.env.KV.get('accounts', 'json') as { accounts: Account[] } | null;
-  let accountList = data?.accounts ?? [];
+  let accountList = await getAccounts(c.env.KV);
 
   // PUBLIC_MODE=true 时显示所有账号（个人模式）
   const isPublicMode = c.env.PUBLIC_MODE === 'true';
