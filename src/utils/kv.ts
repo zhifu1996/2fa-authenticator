@@ -46,8 +46,44 @@ export function reorderAccounts(accounts: Account[]): Account[] {
 }
 
 /**
- * 构建账户名称集合（用于去重检查）
+ * 构建账户唯一键（name+issuer 组合）
  */
-export function buildNameSet(accounts: Account[]): Set<string> {
-  return new Set(accounts.map(a => a.name.toLowerCase()));
+export function buildAccountKey(name: string, issuer: string): string {
+  return `${name.toLowerCase()}|${(issuer || '').toLowerCase()}`;
+}
+
+/**
+ * 构建账户键集合（用于去重检查，基于 name+issuer）
+ */
+export function buildAccountKeySet(accounts: Account[]): Set<string> {
+  return new Set(accounts.map(a => buildAccountKey(a.name, a.issuer)));
+}
+
+/**
+ * 构建密钥集合（用于去重检查）
+ */
+export function buildSecretSet(accounts: Account[]): Set<string> {
+  return new Set(accounts.map(a => a.secret.toUpperCase()));
+}
+
+/**
+ * 检查账户是否重复
+ */
+export function isAccountDuplicate(
+  accounts: Account[],
+  name: string,
+  issuer: string,
+  secret: string,
+  excludeId?: string
+): { isDuplicate: boolean; reason?: string } {
+  const keySet = buildAccountKeySet(excludeId ? accounts.filter(a => a.id !== excludeId) : accounts);
+  const secretSet = buildSecretSet(excludeId ? accounts.filter(a => a.id !== excludeId) : accounts);
+
+  if (keySet.has(buildAccountKey(name, issuer))) {
+    return { isDuplicate: true, reason: '相同账号名称和发行方已存在' };
+  }
+  if (secretSet.has(secret.toUpperCase())) {
+    return { isDuplicate: true, reason: '相同密钥已存在' };
+  }
+  return { isDuplicate: false };
 }

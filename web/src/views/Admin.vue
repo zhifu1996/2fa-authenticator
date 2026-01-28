@@ -24,117 +24,112 @@
     </div>
 
     <!-- 管理后台 -->
-    <div v-else>
+    <div v-else class="pb-20">
       <!-- 顶部标题栏 + 操作按钮 -->
-      <div class="flex items-center gap-2 mb-4 pb-4 border-b">
-        <h2 class="text-xl font-bold">账号管理</h2>
-        <div class="flex-1"></div>
-
-        <!-- 批量操作下拉菜单（选中时显示） -->
-        <div v-if="selectedIds.size > 0" class="relative">
-          <button
-            @click="showBatchMenu = !showBatchMenu"
-            class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-          >
-            <span>已选 {{ selectedIds.size }}</span>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          <!-- 下拉菜单 -->
-          <div
-            v-if="showBatchMenu"
-            class="absolute right-0 mt-1 w-32 bg-white rounded-lg shadow-lg border py-1 z-50"
-          >
+      <div class="sticky top-0 z-30 bg-white border-b shadow-sm px-4 py-3 mb-4 -mx-4 sm:mx-0 sm:rounded-lg">
+        <div class="flex justify-between items-center">
+          <h2 class="text-xl font-bold text-gray-800">账号管理</h2>
+          <div class="flex items-center gap-1">
+            <!-- 扫码添加 -->
             <button
-              @click="handleBatchSetPublic(true); showBatchMenu = false"
-              class="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+              @click="startQrScan"
+              class="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+              title="扫码添加"
             >
-              <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
               </svg>
-              设为公开
             </button>
+            <!-- 手动添加 -->
             <button
-              @click="handleBatchSetPublic(false); showBatchMenu = false"
-              class="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+              @click="showAddForm = true"
+              class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              title="手动添加"
             >
-              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+              <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
               </svg>
-              设为隐私
             </button>
-            <div class="border-t my-1"></div>
-            <button
-              @click="handleBatchDelete(); showBatchMenu = false"
-              class="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              删除
-            </button>
-            <div class="border-t my-1"></div>
-            <button
-              @click="selectedIds = new Set(); showBatchMenu = false"
-              class="w-full px-4 py-2 text-left text-sm text-gray-500 hover:bg-gray-50 flex items-center gap-2"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              取消选择
-            </button>
+            <!-- 更多菜单 -->
+            <div class="relative">
+              <button
+                @click="showMoreMenu = !showMoreMenu"
+                class="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                </svg>
+              </button>
+              <!-- 更多菜单下拉 -->
+              <div
+                v-if="showMoreMenu"
+                class="absolute right-0 mt-1 w-36 bg-white rounded-lg shadow-lg border py-1 z-50"
+              >
+                <button
+                  @click="showImportForm = true; showMoreMenu = false"
+                  class="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  导入
+                </button>
+                <button
+                  @click="showExportForm = true; showMoreMenu = false"
+                  class="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  导出
+                </button>
+                <div class="border-t my-1"></div>
+                <button
+                  @click="handleLogout(); showMoreMenu = false"
+                  class="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  退出登录
+                </button>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
 
-        <!-- 常规操作 -->
+      <!-- 批量操作浮动栏（选中时显示） -->
+      <div
+        v-if="selectedIds.size > 0"
+        class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-white rounded-full shadow-lg border px-4 py-2 flex items-center gap-3 z-40"
+      >
+        <span class="text-sm text-gray-600">已选 {{ selectedIds.size }} 项</span>
+        <div class="w-px h-4 bg-gray-200"></div>
         <button
-          @click="showAddForm = true"
-          class="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-          title="添加账号"
+          @click="handleBatchSetPublic(true)"
+          class="text-sm text-emerald-600 hover:text-emerald-700"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
+          设为公开
         </button>
         <button
-          @click="startQrScan"
-          class="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg"
-          title="扫码添加"
+          @click="handleBatchSetPublic(false)"
+          class="text-sm text-gray-600 hover:text-gray-700"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-          </svg>
-        </button>
-        <div class="w-px h-5 bg-gray-200"></div>
-        <button
-          @click="showImportForm = true"
-          class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
-          title="导入"
-        >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-          </svg>
+          设为隐私
         </button>
         <button
-          @click="showExportForm = true"
-          class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
-          title="导出"
+          @click="handleBatchDelete()"
+          class="text-sm text-red-600 hover:text-red-700"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
+          删除
         </button>
-        <div class="w-px h-5 bg-gray-200"></div>
+        <div class="w-px h-4 bg-gray-200"></div>
         <button
-          @click="handleLogout"
-          class="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
-          title="退出登录"
+          @click="selectedIds = new Set()"
+          class="text-sm text-gray-400 hover:text-gray-500"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
+          取消
         </button>
       </div>
 
@@ -143,60 +138,73 @@
       <div v-else-if="accounts.length === 0" class="text-center py-8 text-gray-500">
         暂无账号
       </div>
-      <div v-else>
+      <div v-else class="space-y-6">
         <!-- 全选 -->
-        <div class="flex items-center gap-3 mb-3">
-          <input
-            type="checkbox"
-            :checked="selectedIds.size === accounts.length && accounts.length > 0"
-            @change="toggleSelectAll"
-            class="w-4 h-4 rounded"
-          />
-          <span class="text-sm text-gray-500">全选 ({{ accounts.length }})</span>
-        </div>
-
-        <!-- 账号网格 -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div
-            v-for="account in sortedAccounts"
-            :key="account.id"
-            class="flex items-center gap-3 p-3 rounded-xl border transition-all hover:shadow-sm"
-            :class="account.isPublic ? 'bg-emerald-50/50 border-emerald-200' : 'bg-white border-gray-200'"
-          >
+        <div class="flex items-center gap-3 px-2">
+          <label class="flex items-center gap-2 cursor-pointer text-gray-600 select-none">
             <input
               type="checkbox"
-              :checked="selectedIds.has(account.id)"
-              @change="toggleSelect(account.id)"
-              class="w-4 h-4 rounded flex-shrink-0"
+              :checked="selectedIds.size === accounts.length && accounts.length > 0"
+              @change="toggleSelectAll"
+              class="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 transition-colors"
             />
-            <div class="flex-1 min-w-0">
-              <div class="font-medium text-gray-800 truncate">{{ account.name }}</div>
-              <div class="text-xs text-gray-400 truncate">{{ account.issuer || '未分类' }}</div>
-            </div>
-            <div class="flex items-center gap-1">
-              <span
-                class="w-2 h-2 rounded-full"
-                :class="account.isPublic ? 'bg-emerald-400' : 'bg-gray-300'"
-                :title="account.isPublic ? '公开' : '隐私'"
-              ></span>
-              <button
-                @click="editAccount(account)"
-                class="p-1.5 text-gray-400 hover:text-blue-600 rounded"
-                title="编辑"
+            <span class="text-sm">全选所有账号</span>
+          </label>
+        </div>
+
+        <!-- 按 issuer 分组的账号列表 -->
+        <div v-for="group in groupedAccounts" :key="group.issuer">
+          <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 px-2">
+            {{ group.issuer }}
+          </h3>
+          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div
+              v-for="account in group.accounts"
+              :key="account.id"
+              class="relative bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden group hover:border-blue-300 transition-colors"
+            >
+              <!-- 右上角标签 -->
+              <div
+                class="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wide"
+                :class="account.isPublic ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
               >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              </button>
-              <button
-                @click="handleDelete(account.id)"
-                class="p-1.5 text-gray-400 hover:text-red-600 rounded"
-                title="删除"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
+                {{ account.isPublic ? '公开' : '隐私' }}
+              </div>
+              <div class="p-3">
+                <div class="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    :checked="selectedIds.has(account.id)"
+                    @change="toggleSelect(account.id)"
+                    class="mt-1 w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 flex-shrink-0"
+                  />
+                  <div class="flex-1 min-w-0 pr-10">
+                    <div class="font-bold text-gray-900 truncate mb-0.5">{{ account.name }}</div>
+                    <div class="font-mono text-xs text-gray-400 truncate">{{ account.secret }}</div>
+                  </div>
+                </div>
+                <!-- 操作按钮 -->
+                <div class="mt-3 pt-2 border-t border-gray-100 flex justify-end gap-1">
+                  <button
+                    @click="editAccount(account)"
+                    class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1 text-xs"
+                  >
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    编辑
+                  </button>
+                  <button
+                    @click="handleDelete(account.id)"
+                    class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1 text-xs"
+                  >
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    删除
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -387,93 +395,86 @@ admin@company.com, GitHub, HXDMVJECJJWSRB3H"
       @mousedown.self="stopQrScan"
       @paste="handlePaste"
     >
-      <div class="bg-white rounded-lg p-4 w-full max-w-lg" @mousedown.stop>
-        <h3 class="text-lg font-bold mb-3">添加账号</h3>
-
-        <!-- 两列布局：扫码 / 图片上传 -->
-        <div class="grid grid-cols-2 gap-3 mb-4">
-          <!-- 左侧：摄像头扫码 -->
-          <div
-            class="border-2 rounded-lg p-3 cursor-pointer transition-colors"
-            :class="scanMode === 'camera' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'"
-            @click="switchToCamera"
-          >
-            <div class="text-center">
-              <svg class="w-8 h-8 mx-auto mb-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-              </svg>
-              <div class="text-sm font-medium">摄像头扫码</div>
-            </div>
-          </div>
-
-          <!-- 右侧：图片上传 -->
-          <label
-            class="border-2 rounded-lg p-3 cursor-pointer transition-colors"
-            :class="scanMode === 'image' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'"
-          >
-            <div class="text-center">
-              <svg class="w-8 h-8 mx-auto mb-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <div class="text-sm font-medium">选择图片</div>
-              <div class="text-xs text-gray-500 mt-1">或 Ctrl+V 粘贴</div>
-            </div>
-            <input
-              type="file"
-              accept="image/*"
-              class="hidden"
-              @change="handleQrImageUpload"
-            />
-          </label>
-        </div>
-
-        <!-- 扫描区域 -->
-        <div class="space-y-3">
-          <!-- 权限提示 -->
-          <div v-if="cameraPermissionDenied && scanMode === 'camera'" class="text-center py-4">
-            <p class="text-gray-700 font-medium mb-2">需要摄像头权限</p>
-            <p class="text-sm text-gray-500 mb-3">请在浏览器设置中允许访问摄像头</p>
+      <div class="bg-white rounded-lg p-6 w-full max-w-md" @mousedown.stop>
+        <h3 class="text-lg font-bold mb-4">扫描二维码</h3>
+        <div class="space-y-4">
+          <!-- Tab 切换 -->
+          <div class="flex border-b">
             <button
-              @click="retryQrScan"
-              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+              @click="switchToCamera"
+              class="flex-1 py-2 text-sm font-medium border-b-2 -mb-px transition-colors"
+              :class="scanMode === 'camera' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
             >
-              重试
+              摄像头扫描
+            </button>
+            <button
+              @click="scanMode = 'image'"
+              class="flex-1 py-2 text-sm font-medium border-b-2 -mb-px transition-colors"
+              :class="scanMode === 'image' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+            >
+              上传图片
             </button>
           </div>
 
-          <!-- 摄像头扫描器 -->
-          <div v-else-if="scanMode === 'camera'">
-            <div v-if="cameraLoading" class="text-center py-6 text-gray-500">
-              <div class="animate-pulse">正在启动摄像头...</div>
+          <!-- 摄像头扫描内容 -->
+          <div v-if="scanMode === 'camera'" class="space-y-4">
+            <!-- 权限提示 -->
+            <div v-if="cameraPermissionDenied" class="text-center py-6">
+              <div class="text-4xl mb-3">📷</div>
+              <p class="text-gray-700 font-medium mb-1">需要摄像头权限</p>
+              <p class="text-sm text-gray-500 mb-3">请在浏览器设置中允许访问摄像头</p>
+              <button
+                @click="retryQrScan"
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+              >
+                重试
+              </button>
             </div>
-            <div id="qr-reader" class="w-full"></div>
+            <!-- 摄像头扫描器 -->
+            <div v-else id="qr-reader" class="w-full rounded-lg overflow-hidden"></div>
           </div>
 
-          <!-- 图片识别状态 -->
-          <div v-else-if="scanMode === 'image'" class="text-center py-6">
-            <div v-if="scanningImage" class="text-gray-500">
-              <div class="animate-pulse">正在识别图片...</div>
-            </div>
-            <div v-else class="text-gray-400">
-              <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <p class="text-sm">点击上方选择图片</p>
-              <p class="text-xs mt-1">或按 Ctrl+V 粘贴截图</p>
-            </div>
+          <!-- 上传图片内容 -->
+          <div v-else class="space-y-4">
+            <label
+              class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors cursor-pointer block"
+              @dragover.prevent
+              @drop.prevent="handleDrop"
+            >
+              <div v-if="scanningImage">
+                <div class="text-4xl mb-3">⏳</div>
+                <p class="text-gray-500 animate-pulse">正在识别图片...</p>
+              </div>
+              <div v-else>
+                <div class="text-4xl mb-3">📤</div>
+                <p class="text-gray-700 font-medium mb-1">点击选择图片或拖拽到此处</p>
+                <p class="text-sm text-gray-500">支持 PNG、JPG、WEBP 格式</p>
+                <p class="text-xs text-gray-400 mt-2">也可以直接粘贴 (Ctrl+V / Cmd+V)</p>
+              </div>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                class="hidden"
+                @change="handleQrImageUpload"
+              />
+            </label>
           </div>
 
           <!-- 临时DOM元素用于图片扫描 -->
           <div id="qr-reader-temp" class="hidden"></div>
 
+          <!-- 错误提示 -->
           <div v-if="qrError && !cameraPermissionDenied" class="text-red-500 text-sm text-center">{{ qrError }}</div>
 
-          <button
-            @click="stopQrScan"
-            class="w-full py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-          >
-            取消
-          </button>
+          <!-- 取消按钮 -->
+          <div class="flex gap-3 pt-2">
+            <button
+              @click="stopQrScan"
+              class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              取消
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -506,20 +507,33 @@ const isLoggedIn = ref(!!getToken());
 const accounts = ref<Account[]>([]);
 const loading = ref(true);
 const selectedIds = ref<Set<string>>(new Set());
-const showBatchMenu = ref(false);
+const showMoreMenu = ref(false);
 
-// 排序后的账号列表（按 issuer 分组，再按名称排序）
-const sortedAccounts = computed(() => {
-  return [...accounts.value].sort((a, b) => {
-    const issuerA = a.issuer || '其他';
-    const issuerB = b.issuer || '其他';
-    if (issuerA !== issuerB) {
-      if (issuerA === '其他') return 1;
-      if (issuerB === '其他') return -1;
-      return issuerA.localeCompare(issuerB);
+// 按 issuer 分组的账号列表
+const groupedAccounts = computed(() => {
+  const groups: { [key: string]: Account[] } = {};
+
+  for (const account of accounts.value) {
+    const issuer = account.issuer || '其他';
+    if (!groups[issuer]) {
+      groups[issuer] = [];
     }
-    return a.name.localeCompare(b.name);
-  });
+    groups[issuer].push(account);
+  }
+
+  // 对每组内的账号按名称排序
+  for (const key in groups) {
+    groups[key].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  // 转换为数组并按 issuer 排序（"其他"排最后）
+  return Object.entries(groups)
+    .sort(([a], [b]) => {
+      if (a === '其他') return 1;
+      if (b === '其他') return -1;
+      return a.localeCompare(b);
+    })
+    .map(([issuer, accs]) => ({ issuer, accounts: accs }));
 });
 
 const showAddForm = ref(false);
@@ -792,7 +806,6 @@ async function handleExport() {
 const showQrScanner = ref(false);
 const qrError = ref('');
 const cameraPermissionDenied = ref(false);
-const cameraLoading = ref(false);
 const permissionWatching = ref(false);
 const scanningImage = ref(false);
 const scanMode = ref<'camera' | 'image'>('camera');
@@ -869,15 +882,18 @@ async function startQrScan() {
 async function startCamera() {
   if (scanMode.value !== 'camera') return;
 
-  cameraLoading.value = true;
-
   await nextTick();
 
   try {
-    html5QrCode = new Html5Qrcode('qr-reader');
+    html5QrCode = new Html5Qrcode('qr-reader', { verbose: false });
     await html5QrCode.start(
       { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 250, height: 250 } },
+      {
+        fps: 15,
+        qrbox: { width: 200, height: 200 },
+        aspectRatio: 1,
+        disableFlip: false,
+      },
       async (decodedText) => {
         const parsed = parseOtpauthUri(decodedText);
         if (parsed) {
@@ -895,9 +911,7 @@ async function startCamera() {
       },
       () => {} // 忽略扫描中的错误
     );
-    cameraLoading.value = false;
   } catch (err: unknown) {
-    cameraLoading.value = false;
     const errorMessage = err instanceof Error ? err.message : String(err);
     // 检测权限相关错误
     if (
@@ -946,7 +960,6 @@ async function stopQrScan() {
   showQrScanner.value = false;
   qrError.value = '';
   cameraPermissionDenied.value = false;
-  cameraLoading.value = false;
   scanningImage.value = false;
   scanMode.value = 'camera';
 }
@@ -960,6 +973,18 @@ async function handleQrImageUpload(event: Event) {
   input.value = ''; // 重置以便重复选择相同文件
 
   await processQrImage(file);
+}
+
+// 处理拖拽上传图片
+async function handleDrop(event: DragEvent) {
+  const files = event.dataTransfer?.files;
+  if (!files?.length) return;
+
+  const file = files[0];
+  if (file.type.startsWith('image/')) {
+    scanMode.value = 'image';
+    await processQrImage(file);
+  }
 }
 
 // 处理粘贴图片
@@ -1175,18 +1200,18 @@ onMounted(() => {
     loading.value = false;
   }
   // 点击外部关闭下拉菜单
-  document.addEventListener('click', closeBatchMenu);
+  document.addEventListener('click', closeMoreMenu);
 });
 
-function closeBatchMenu(e: MouseEvent) {
+function closeMoreMenu(e: MouseEvent) {
   const target = e.target as HTMLElement;
   if (!target.closest('.relative')) {
-    showBatchMenu.value = false;
+    showMoreMenu.value = false;
   }
 }
 
 onUnmounted(() => {
   stopQrScan();
-  document.removeEventListener('click', closeBatchMenu);
+  document.removeEventListener('click', closeMoreMenu);
 });
 </script>

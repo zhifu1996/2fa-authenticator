@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Account, Env } from '../types';
 import { createJWT, verifyJWT, getJWTSecret } from '../utils/auth';
-import { getAccounts, saveAccounts, findAccountIndexById, reorderAccounts, buildNameSet } from '../utils/kv';
+import { getAccounts, saveAccounts, findAccountIndexById, reorderAccounts, buildAccountKey, buildAccountKeySet, buildSecretSet, isAccountDuplicate } from '../utils/kv';
 import {
   validateAccountInput,
   validateIdsArray,
@@ -70,6 +70,12 @@ admin.post('/accounts', authMiddleware, async (c) => {
 
   const accounts = await getAccounts(c.env.KV);
 
+  // 去重检查
+  const duplicateCheck = isAccountDuplicate(accounts, body.name, body.issuer || '', body.secret);
+  if (duplicateCheck.isDuplicate) {
+    return c.json({ error: duplicateCheck.reason }, 400);
+  }
+
   const newAccount: Account = {
     id: crypto.randomUUID(),
     name: body.name.trim(),
@@ -106,13 +112,22 @@ admin.put('/accounts/:id', authMiddleware, async (c) => {
     return c.json({ error: 'Account not found' }, 404);
   }
 
+  // 去重检查（排除当前账号）
+  const newName = body.name?.trim() ?? accounts[index].name;
+  const newIssuer = body.issuer?.trim() ?? accounts[index].issuer;
+  const newSecret = body.secret ? normalizeSecret(body.secret) : accounts[index].secret;
+  const duplicateCheck = isAccountDuplicate(accounts, newName, newIssuer, newSecret, id);
+  if (duplicateCheck.isDuplicate) {
+    return c.json({ error: duplicateCheck.reason }, 400);
+  }
+
   accounts[index] = {
     ...accounts[index],
     ...body,
     id, // 保持 id 不变
-    name: body.name?.trim() ?? accounts[index].name,
-    issuer: body.issuer?.trim() ?? accounts[index].issuer,
-    secret: body.secret ? normalizeSecret(body.secret) : accounts[index].secret,
+    name: newName,
+    issuer: newIssuer,
+    secret: newSecret,
   };
 
   await saveAccounts(c.env.KV, accounts);
@@ -359,7 +374,8 @@ admin.post('/accounts/import', authMiddleware, async (c) => {
 
   const accounts = await getAccounts(c.env.KV);
   let currentOrder = accounts.length;
-  const existingNames = buildNameSet(accounts);
+  const existingKeys = buildAccountKeySet(accounts);
+  const existingSecrets = buildSecretSet(accounts);
 
   for (const item of parsed) {
     const cleanSecret = normalizeSecret(item.secret);
@@ -369,8 +385,16 @@ admin.post('/accounts/import', authMiddleware, async (c) => {
       continue;
     }
 
-    if (existingNames.has(item.name.toLowerCase())) {
+    // 检查 name+issuer 重复
+    const accountKey = buildAccountKey(item.name, item.issuer);
+    if (existingKeys.has(accountKey)) {
       duplicates.push(item.name);
+      continue;
+    }
+
+    // 检查 secret 重复
+    if (existingSecrets.has(cleanSecret.toUpperCase())) {
+      duplicates.push(`${item.name} (密钥重复)`);
       continue;
     }
 
@@ -387,7 +411,8 @@ admin.post('/accounts/import', authMiddleware, async (c) => {
 
     accounts.push(newAccount);
     importedAccounts.push(newAccount);
-    existingNames.add(item.name.toLowerCase());
+    existingKeys.add(accountKey);
+    existingSecrets.add(cleanSecret.toUpperCase());
   }
 
   await saveAccounts(c.env.KV, accounts);
