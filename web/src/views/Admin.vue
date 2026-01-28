@@ -268,16 +268,14 @@
       class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
       @mousedown.self="showImportForm = false; importError = ''"
     >
-      <div class="bg-white rounded-lg p-6 w-full max-w-lg" @mousedown.stop>
-        <h3 class="text-lg font-bold mb-4">批量导入账号</h3>
+      <div class="bg-white rounded-lg p-6 w-full max-w-sm" @mousedown.stop>
+        <h3 class="text-lg font-bold mb-4">导入账号</h3>
         <div class="space-y-4">
-          <div class="text-sm text-gray-500 bg-gray-50 p-3 rounded">
-            <p class="font-medium text-gray-700 mb-1">支持格式：</p>
-            <p>Aegis JSON、简单 JSON、TSV、CSV</p>
-            <p class="text-xs text-gray-400 mt-1">自动识别格式，支持直接粘贴或选择文件</p>
-          </div>
           <div>
-            <div class="flex items-center justify-between mb-1">
+            <p class="text-sm text-gray-600 mb-3">
+              支持 Aegis JSON、简单 JSON、TSV、CSV 格式，自动识别
+            </p>
+            <div class="flex items-center justify-between mb-2">
               <label class="block text-sm font-medium text-gray-700">粘贴内容或选择文件</label>
               <label class="cursor-pointer px-3 py-1 bg-gray-100 text-gray-600 rounded text-sm hover:bg-gray-200">
                 选择文件
@@ -291,11 +289,11 @@
             </div>
             <textarea
               v-model="importContent"
-              rows="10"
+              rows="8"
               placeholder="示例：
 user@example.com, Google, JBSWY3DPEHPK3PXP
 admin@company.com, GitHub, HXDMVJECJJWSRB3H"
-              class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs"
+              class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             ></textarea>
           </div>
           <div v-if="importError" class="text-red-500 text-sm">{{ importError }}</div>
@@ -310,7 +308,7 @@ admin@company.com, GitHub, HXDMVJECJJWSRB3H"
             <button
               @click="handleImport"
               :disabled="importLoading"
-              class="flex-1 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              class="flex-1 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50"
             >
               {{ importLoading ? '导入中...' : '导入' }}
             </button>
@@ -353,8 +351,8 @@ admin@company.com, GitHub, HXDMVJECJJWSRB3H"
               v-model="form.secret"
               type="text"
               required
-              placeholder="Base32 编码密钥"
-              class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+              placeholder="例如: JBSWY3DPEHPK3PXP"
+              class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
