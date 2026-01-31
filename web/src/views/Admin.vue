@@ -602,6 +602,11 @@ async function fetchAccounts() {
     accounts.value = await getAdminAccounts();
   } catch (e) {
     console.error(e);
+    // Token 过期被清除时，重置登录状态
+    if (!getToken()) {
+      isLoggedIn.value = false;
+      accounts.value = [];
+    }
   } finally {
     loading.value = false;
   }
